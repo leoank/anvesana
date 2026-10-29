@@ -1,0 +1,46 @@
+[project]
+name = "anvesana"
+version = "0.3.0"
+description = "Node health benchmarks: GPU/CPU/memory/disk throughput and telemetry, tracked per machine over time"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "psutil>=6.0",
+    "nvidia-ml-py>=13.0",
+    # CUDA driver API + NVRTC bindings and the native CUDA 13 libraries they load.
+    # These ship as pip wheels for win_arm64 and linux_aarch64, so no CUDA toolkit is needed.
+    "cuda-python>=13.0",
+    "nvidia-cuda-nvrtc>=13.0",
+    "nvidia-cuda-runtime>=13.0",
+    "nvidia-cublas>=13.0",
+]
+
+[project.optional-dependencies]
+tensorrt = [
+    # TensorRT for RTX works on both OSes and is the like-for-like comparison.
+    "tensorrt-rtx>=1.7",
+    # Full TensorRT: the win_arm64 wheel ships without its Myelin resource DLLs,
+    # so every MatMul/Conv build fails there. Linux only.
+    "tensorrt-cu13>=11.4; sys_platform == 'linux'",
+]
+# CUTLASS's profiler is C++: these provide headers, nvcc and the build tools; the
+# host compiler is the system g++. Linux only (MSVC cannot compile CUTLASS SM90+ kernels).
+cutlass = ["nvidia-cutlass>=4.2", "nvidia-cuda-nvcc>=13.0", "nvidia-cuda-cccl>=13.0", "nvidia-curand>=10.0",
+           "cmake>=3.27", "ninja"]
+all = ["anvesana[tensorrt,cutlass]"]
+
+[project.scripts]
+anvesana = "anvesana.cli:main"
+bench = "anvesana.cli:main"
+
+[tool.uv]
+# Lock only versions that have wheels for both OSes the fleet runs.
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'ARM64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.20"]
+build-backend = "uv_build"

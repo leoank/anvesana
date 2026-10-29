@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+# Run results belong in the results store ($ANVESANA_RESULTS_DIR), not the repo;
+# only curated baselines/ are committed.
+results/
+scratch/

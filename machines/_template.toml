@@ -1,0 +1,61 @@
+# Machine profile template. `bench machines init <id>` copies this to <id>.toml
+# with this host's name filled in. Files starting with "_" are ignored.
+
+[machine]
+id = "example"                 # used in run ids and the results store; keep it stable
+description = "..."
+hostnames = ["example-host"]   # lowercase; `bench run` with no --machine picks the profile listing this host
+
+[run]
+duration_s = 30                # seconds per sustained test
+cooldown_s = 15                # idle seconds between benchmarks (similar thermal start for each)
+idle_s = 10                    # idle baseline recorded before the first benchmark
+
+# Benchmarks, in run order. `id` names the phase and prefixes the metrics; `module`
+# is the benchmark (`bench --help` lists them) and defaults to the id. `args` are
+# that benchmark's CLI options (underscores become dashes). `os` limits the entry
+# to some operating systems. Changing args changes what is measured: if you do,
+# promote a new baseline.
+[[benchmarks]]
+id = "cpu"
+
+[[benchmarks]]
+id = "gpu"
+
+[[benchmarks]]
+id = "tensor"
+
+[[benchmarks]]
+id = "cublaslt"
+
+[[benchmarks]]
+id = "tensorrt_rtx"
+module = "tensorrt"
+args = { backend = "rtx" }
+
+[[benchmarks]]
+id = "tensorrt"
+module = "tensorrt"
+args = { backend = "trt" }
+os = ["linux"]
+
+[[benchmarks]]
+id = "cutlass"                 # Linux only; kernel families are SM120-specific (see suite/cutlass_gemm.py)
+os = ["linux"]
+
+[[benchmarks]]
+id = "disk"
+# args = { path = "/data/.bench_disk.tmp", size_mb = 2048 }   # test a specific drive
+
+# Vendor-advertised peaks, for "% of spec" in the run summary. Optional.
+[expected]
+# "tensor.fp16" = 125
+
+# Health check tolerances: how much worse than the reference (baseline or
+# recent median) a metric may get, in percent, before WARN (half) / FAIL (full).
+[health]
+tolerance_pct = 10
+
+[health.tolerance_overrides]   # glob -> percent; the longest matching pattern wins
+"tensor.*" = 5
+"disk.*" = 30

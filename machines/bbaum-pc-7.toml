@@ -1,0 +1,64 @@
+[machine]
+id = "bbaum-pc-7"
+description = """MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), \
+128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux."""
+hostnames = ["bbaum-pc-7"]
+
+[run]
+duration_s = 30
+cooldown_s = 15
+idle_s = 10
+
+[[benchmarks]]
+id = "cpu"
+
+[[benchmarks]]
+id = "gpu"
+
+[[benchmarks]]
+id = "tensor"
+
+[[benchmarks]]
+id = "cublaslt"
+
+[[benchmarks]]
+id = "tensorrt_rtx"
+module = "tensorrt"
+args = { backend = "rtx" }
+
+[[benchmarks]]
+id = "tensorrt"          # full TensorRT; its win_arm64 wheel cannot build engines
+module = "tensorrt"
+args = { backend = "trt" }
+os = ["linux"]
+
+[[benchmarks]]
+id = "cutlass"           # CUTLASS SM120 kernels don't compile with MSVC (C2719)
+os = ["linux"]
+
+[[benchmarks]]
+id = "disk"
+
+# NVIDIA quotes the N1X as "1 PFLOP of FP4 AI compute", which is NVFP4 with 2:4
+# sparsity. The other entries are derived from it with Blackwell's 2x per
+# precision halving and 2x for sparsity; they are not separately published.
+[expected]
+"tensor.nvfp4_sparse" = 1000
+"tensor.nvfp4" = 500
+"tensor.mxfp4" = 500
+"tensor.fp8_sparse" = 500
+"tensor.fp8" = 250
+"tensor.fp16_sparse" = 250
+"tensor.fp16" = 125
+"tensor.fp16_f16acc" = 125
+"tensor.bf16" = 125
+
+[health]
+tolerance_pct = 10
+
+[health.tolerance_overrides]
+"tensor.*" = 5           # register-only kernels: very repeatable
+"gpu.*" = 8
+"cublaslt.*" = 8         # power-capped at ~47 W: clocks vary with temperature
+"disk.*" = 30            # NVMe results swing with SSD thermal/power state
+"*_latency" = 40
