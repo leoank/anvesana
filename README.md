@@ -69,6 +69,8 @@ uv run bench baseline promote dgx-01@latest   # once a run looks right; commit t
 ```bash
 uv run bench run --health        # run this host's profile, store it, check it; exit 1 on regression
 uv run bench fleet               # every machine's latest health; flags nodes with no run in 35 days
+uv run bench show                # newest run in full: metrics with % of spec, W, TFLOPS/W, clocks; settings; telemetry
+uv run bench show dgx-01@baseline --metrics "tensor.*" --no-environment
 uv run bench history             # trends across the last 6 runs
 uv run bench health dgx-01@latest --against median   # vs the median of the last 3 runs instead of the baseline
 uv run bench compare dgx-01@baseline dgx-01@latest --markdown report.md

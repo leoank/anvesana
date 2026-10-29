@@ -9,6 +9,7 @@ Fleet workflow
   bench run [--machine ID] [--health]     run the machine's suite, store the results
   bench health [RUN] [--against REF]      check a run against baseline / recent median
   bench fleet                             latest health of every machine; flags stale nodes
+  bench show [RUN]                        one run in full: metrics, settings, environment, telemetry
   bench history [MACHINE]                 metric trends across stored runs
   bench compare A B                       any two runs side by side
   bench runs [MACHINE]                    list stored runs
@@ -26,7 +27,7 @@ import argparse
 import json
 import sys
 
-from .framework import compare, fleet, health, history, provision, registry, runner, store
+from .framework import compare, fleet, health, history, provision, registry, runner, show, store
 from .framework import machine as machines
 from .hw import monitor
 
@@ -95,6 +96,7 @@ def main(argv=None) -> int:
 
     for name, module, help_ in (("run", runner, "run a machine's suite"),
                                 ("health", health, "health-check a run"),
+                                ("show", show, "print one run in full"),
                                 ("history", history, "metric trends for a machine"),
                                 ("compare", compare, "compare two runs"),
                                 ("monitor", monitor, "telemetry logger only")):
