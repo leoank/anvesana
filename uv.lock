@@ -8,67 +8,90 @@ resolution-markers = [
 required-markers = [
     "platform_machine == 'ARM64' and sys_platform == 'win32'",
     "platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 
 [[package]]
 name = "anvesana"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
-    { name = "cuda-python" },
     { name = "numpy" },
-    { name = "nvidia-cublas", version = "13.8.0.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
-    { name = "nvidia-cublas", version = "13.8.2.12", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
-    { name = "nvidia-cuda-nvrtc" },
-    { name = "nvidia-cuda-runtime" },
-    { name = "nvidia-ml-py" },
     { name = "psutil" },
 ]
 
 [package.optional-dependencies]
 all = [
     { name = "cmake" },
+    { name = "cuda-python" },
     { name = "ninja" },
+    { name = "nvidia-cublas", version = "13.8.0.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "nvidia-cublas", version = "13.8.2.12", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
     { name = "nvidia-cuda-cccl" },
     { name = "nvidia-cuda-nvcc" },
+    { name = "nvidia-cuda-nvrtc" },
+    { name = "nvidia-cuda-runtime" },
     { name = "nvidia-curand" },
     { name = "nvidia-cutlass" },
+    { name = "nvidia-ml-py" },
     { name = "tensorrt-cu13", marker = "sys_platform == 'linux'" },
     { name = "tensorrt-rtx" },
 ]
 cutlass = [
     { name = "cmake" },
+    { name = "cuda-python" },
     { name = "ninja" },
+    { name = "nvidia-cublas", version = "13.8.0.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "nvidia-cublas", version = "13.8.2.12", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
     { name = "nvidia-cuda-cccl" },
     { name = "nvidia-cuda-nvcc" },
+    { name = "nvidia-cuda-nvrtc" },
+    { name = "nvidia-cuda-runtime" },
     { name = "nvidia-curand" },
     { name = "nvidia-cutlass" },
+    { name = "nvidia-ml-py" },
+]
+nvidia = [
+    { name = "cuda-python" },
+    { name = "nvidia-cublas", version = "13.8.0.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "nvidia-cublas", version = "13.8.2.12", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
+    { name = "nvidia-cuda-nvrtc" },
+    { name = "nvidia-cuda-runtime" },
+    { name = "nvidia-ml-py" },
 ]
 tensorrt = [
+    { name = "cuda-python" },
+    { name = "nvidia-cublas", version = "13.8.0.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "nvidia-cublas", version = "13.8.2.12", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
+    { name = "nvidia-cuda-nvrtc" },
+    { name = "nvidia-cuda-runtime" },
+    { name = "nvidia-ml-py" },
     { name = "tensorrt-cu13", marker = "sys_platform == 'linux'" },
     { name = "tensorrt-rtx" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anvesana", extras = ["tensorrt", "cutlass"], marker = "extra == 'all'" },
+    { name = "anvesana", extras = ["nvidia"], marker = "extra == 'cutlass'" },
+    { name = "anvesana", extras = ["nvidia"], marker = "extra == 'tensorrt'" },
+    { name = "anvesana", extras = ["nvidia", "tensorrt", "cutlass"], marker = "extra == 'all'" },
     { name = "cmake", marker = "extra == 'cutlass'", specifier = ">=3.27" },
-    { name = "cuda-python", specifier = ">=13.0" },
+    { name = "cuda-python", marker = "extra == 'nvidia'", specifier = ">=13.0" },
     { name = "ninja", marker = "extra == 'cutlass'" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "nvidia-cublas", specifier = ">=13.0" },
+    { name = "nvidia-cublas", marker = "extra == 'nvidia'", specifier = ">=13.0" },
     { name = "nvidia-cuda-cccl", marker = "extra == 'cutlass'", specifier = ">=13.0" },
     { name = "nvidia-cuda-nvcc", marker = "extra == 'cutlass'", specifier = ">=13.0" },
-    { name = "nvidia-cuda-nvrtc", specifier = ">=13.0" },
-    { name = "nvidia-cuda-runtime", specifier = ">=13.0" },
+    { name = "nvidia-cuda-nvrtc", marker = "extra == 'nvidia'", specifier = ">=13.0" },
+    { name = "nvidia-cuda-runtime", marker = "extra == 'nvidia'", specifier = ">=13.0" },
     { name = "nvidia-curand", marker = "extra == 'cutlass'", specifier = ">=10.0" },
     { name = "nvidia-cutlass", marker = "extra == 'cutlass'", specifier = ">=4.2" },
-    { name = "nvidia-ml-py", specifier = ">=13.0" },
+    { name = "nvidia-ml-py", marker = "extra == 'nvidia'", specifier = ">=13.0" },
     { name = "psutil", specifier = ">=6.0" },
     { name = "tensorrt-cu13", marker = "sys_platform == 'linux' and extra == 'tensorrt'", specifier = ">=11.4" },
     { name = "tensorrt-rtx", marker = "extra == 'tensorrt'", specifier = ">=1.7" },
 ]
-provides-extras = ["tensorrt", "cutlass", "all"]
+provides-extras = ["nvidia", "tensorrt", "cutlass", "all"]
 
 [[package]]
 name = "cmake"

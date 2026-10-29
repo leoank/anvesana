@@ -92,7 +92,15 @@ def pick_reference(profile, current: RunRecord, root, against: str | None, last:
 
 def evaluate(profile, current: RunRecord, ref: Reference) -> list[dict]:
     verdicts = []
-    ran = {b["id"] for b in current.data.get("settings", {}).get("benchmarks", [])}
+    benchmarks = current.data.get("settings", {}).get("benchmarks", [])
+    # A benchmark that could not run is a failure whatever the reference holds
+    # (a new profile entry, or an earlier run that never had it either).
+    for b in benchmarks:
+        if b.get("status") not in (None, "ok"):
+            detail = b.get("reason") or f"exit code {b.get('exit_code')}"
+            verdicts.append({"metric": f"{b['id']}:run", "unit": "", "current": None, "reference": None,
+                             "status": "FAIL", "detail": f"{b['status']}: {detail}"})
+    ran = {b["id"] for b in benchmarks if b.get("status") in (None, "ok")}
     cur_versions = current.benchmark_versions()
     names = [n for n in dict.fromkeys([*ref.metrics, *current.metrics]) if is_headline(n)]
     for name in names:
@@ -148,9 +156,20 @@ def evaluate(profile, current: RunRecord, ref: Reference) -> list[dict]:
 ORDER = {"FAIL": 0, "MISSING": 1, "WARN": 2, "SKIP": 3, "NEW": 4, "OK": 5}
 
 
+def assess(profile, current: RunRecord, root, against: str | None = None, last: int = 3):
+    """(reference or None, verdicts sorted worst first, overall "PASS"/"WARN"/"FAIL"/"NO REFERENCE")."""
+    ref = pick_reference(profile, current, root, against, last)
+    if ref is None:
+        return None, [], "NO REFERENCE"
+    verdicts = sorted(evaluate(profile, current, ref), key=lambda v: (ORDER[v["status"]], v["metric"]))
+    statuses = {v["status"] for v in verdicts}
+    overall = "FAIL" if statuses & {"FAIL", "MISSING"} else "WARN" if "WARN" in statuses else "PASS"
+    return ref, verdicts, overall
+
+
 def check(profile, current: RunRecord, root, against: str | None = None, last: int = 3, log=print,
           json_path: str | None = None) -> int:
-    ref = pick_reference(profile, current, root, against, last)
+    ref, verdicts, verdict = assess(profile, current, root, against, last)
     log(f"\nHealth check: {current.run_id}\n")
     if ref is None:
         log("  No baseline and no earlier runs: nothing to compare yet. "
@@ -164,14 +183,12 @@ def check(profile, current: RunRecord, root, against: str | None = None, last: i
     for note in current.data.get("preflight", []):
         log(f"  note: preflight: {note}\n")
 
-    verdicts = sorted(evaluate(profile, current, ref), key=lambda v: (ORDER[v["status"]], v["metric"]))
     t = Table("Health", ["metric", "unit", "reference", "current", "status", "detail"])
     for v in verdicts:
         t.add(v["metric"], v["unit"], num(v["reference"]), num(v["current"]), v["status"], v["detail"])
     log(t.text() + "\n")
     counts = {s: sum(v["status"] == s for v in verdicts) for s in ORDER}
     bad = counts["FAIL"] + counts["MISSING"]
-    verdict = "FAIL" if bad else "WARN" if counts["WARN"] else "PASS"
     log(f"\n  {verdict}: " + ", ".join(f"{n} {s}" for s, n in counts.items() if n) + "\n")
     if json_path:
         with open(json_path, "w") as f:

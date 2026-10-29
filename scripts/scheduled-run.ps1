@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Scheduled node-health run for Windows: sync dependencies, run the suite, health-check it.
+    Scheduled node-health run for Windows: install this node's dependencies, run its suite, health-check it.
 .DESCRIPTION
     Exit code 0 = healthy, 1 = a benchmark failed or regressed beyond tolerance.
     Register monthly (first Sunday 03:00) with:
@@ -15,9 +15,16 @@ param([string]$Machine = "", [string]$Tag = "")
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
-uv sync --extra tensorrt --extra cutlass --quiet
-$cmdArgs = @("run", "bench", "run", "--health")
-if ($Machine) { $cmdArgs += @("--machine", $Machine) }
-if ($Tag) { $cmdArgs += @("--tag", $Tag) }
-& uv @cmdArgs
+$machineArgs = @()
+if ($Machine) { $machineArgs = @("--machine", $Machine) }
+
+# Core packages first (inexact: keep whatever extras are installed), then exactly
+# the extras this node's profile needs, from the committed uv.lock.
+uv sync --inexact --locked --quiet
+uv run --no-sync anvesana setup @machineArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$runArgs = @("run", "--no-sync", "anvesana", "run", "--health") + $machineArgs
+if ($Tag) { $runArgs += @("--tag", $Tag) }
+& uv @runArgs
 exit $LASTEXITCODE

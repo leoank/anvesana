@@ -11,13 +11,42 @@ $ANVESANA_RESULTS_DIR/       every run: run.json + telemetry.csv + run.log (outs
 
 ## Setup
 
-[uv](https://docs.astral.sh/uv/) installs Python and every dependency, including the native CUDA 13
-libraries (pip wheels for `win_arm64` and `linux_aarch64`). No CUDA toolkit install is needed.
+Each node installs only what its own profile needs. [uv](https://docs.astral.sh/uv/) manages Python
+and the packages, all from one shared `uv.lock`, so a library has the same version on every node.
 
 ```bash
-uv sync --extra tensorrt --extra cutlass
+uv sync --inexact                 # core only: numpy, psutil (CPU, memory, disk, run records, health)
+uv run anvesana setup             # + exactly the extras this host's profile needs, then `check`
 export ANVESANA_RESULTS_DIR=/shared/anvesana-results     # Windows: setx ANVESANA_RESULTS_DIR \\server\anvesana-results
 ```
+
+| Extra | Contents | Needed by |
+|---|---|---|
+| (core) | numpy, psutil | `cpu`, `disk`, telemetry, all commands |
+| `nvidia` | cuda-python, NVRTC, CUDA runtime, cuBLAS, NVML (pip wheels; no CUDA toolkit) | `gpu`, `tensor`, `cublaslt`, GPU telemetry |
+| `tensorrt` | `nvidia` + TensorRT for RTX, full TensorRT (Linux) | `tensorrt` |
+| `cutlass` | `nvidia` + CUTLASS, nvcc, CMake, Ninja | `cutlass` |
+
+`anvesana setup` works out the extras from the benchmarks the profile runs on this OS, plus any listed
+under `[install] extras`. It runs `uv sync --locked` with exactly those, removing extras the node no
+longer needs. Things uv can't install are only checked: GPU drivers, compilers, and in the future
+InfiniBand `perftest` or FPGA runtimes. Each benchmark declares those as `tools` / `hardware` in
+`framework/registry.py`, and `anvesana check` reports what's missing:
+
+```
+$ anvesana check
+benchmark  module   status   detail
+cpu        cpu      OK
+gpu        gpu      MISSING  missing Python packages (cuda); run `anvesana setup` (extras: nvidia)
+```
+
+A suite run applies the same check up front. A benchmark that can't run is recorded as
+`unavailable`, with the reason, and fails the health check.
+
+The lock covers win_arm64, linux_aarch64 and linux_x86_64 (`required-environments` in
+`pyproject.toml`). Add a platform there before adding a node of a new kind. If two extras ever need
+incompatible versions (say CUDA 12 for older GPUs vs CUDA 13), declare them in uv's `conflicts`
+setting.
 
 The CUTLASS benchmark runs on Linux only and needs the system `g++`. Its first run builds NVIDIA's
 `cutlass_profiler` once and caches it in `~/.cache/anvesana/cutlass`. On Windows, CUTLASS's
@@ -27,8 +56,10 @@ kernel parameters (error C2719).
 ## Adding a machine
 
 ```bash
+uv sync --inexact
 uv run bench machines init dgx-01      # writes machines/dgx-01.toml with this host's name
-# edit: benchmark list/args, [expected] vendor peaks, [health] tolerances
+# edit: benchmark list/args, [install] extras, [expected] vendor peaks, [health] tolerances
+uv run bench setup                     # install what it needs, then check readiness
 uv run bench run                       # first run
 uv run bench baseline promote dgx-01@latest   # once a run looks right; commit the baseline
 ```
@@ -37,14 +68,15 @@ uv run bench baseline promote dgx-01@latest   # once a run looks right; commit t
 
 ```bash
 uv run bench run --health        # run this host's profile, store it, check it; exit 1 on regression
+uv run bench fleet               # every machine's latest health; flags nodes with no run in 35 days
 uv run bench history             # trends across the last 6 runs
 uv run bench health dgx-01@latest --against median   # vs the median of the last 3 runs instead of the baseline
 uv run bench compare dgx-01@baseline dgx-01@latest --markdown report.md
 uv run bench runs                # everything in the store
 ```
 
-`scripts/scheduled-run.ps1` and `scripts/scheduled-run.sh` wrap sync, run and health for Task Scheduler,
-cron or systemd. Their headers show how to register them for the first Sunday of each month.
+`scripts/scheduled-run.ps1` and `scripts/scheduled-run.sh` wrap setup, run and health for Task
+Scheduler, cron or systemd, so a profile change reaches the node's dependencies on its next run. Their headers show how to register them for the first Sunday of each month.
 
 Run references accept a path, a run id, `<machine>` / `<machine>@latest`, `<machine>@-1` (the run before
 the newest), `<machine>@2026-10-29`, or `<machine>@baseline[:<os>]`.
@@ -96,8 +128,12 @@ Every GPU benchmark also records average power, SM clock and TFLOPS/W while it r
 runs in its own process, with a cooldown between benchmarks.
 
 To add a benchmark, write `src/anvesana/suite/<name>.py` with `NAME`, `VERSION`, `DESCRIPTION`,
-`add_arguments(parser)` and `run(args) -> list[Metric]`. Then register it in
-`framework/registry.py` and list it in the relevant machine profiles.
+`add_arguments(parser)` and `run(args) -> list[Metric]`. Then add a `Requirement` to `SUITE` in
+`framework/registry.py`, with its extras, required system tools, supported OSes and hardware probe.
+If it needs new Python packages, add an extra in `pyproject.toml` and run `uv lock`. Finally, list it
+in the relevant machine profiles. For example, an InfiniBand benchmark would be
+`Requirement("ib_perf", tools=("ib_write_bw", "ib_read_lat"), os=("linux",), hardware="infiniband")`,
+with an `infiniband` probe added to `HARDWARE_PROBES`.
 
 Run any single benchmark directly: `uv run bench tensor --duration 10 --precisions fp16,nvfp4`.
 

@@ -47,6 +47,15 @@ os = ["linux"]
 id = "disk"
 # args = { path = "/data/.bench_disk.tmp", size_mb = 2048 }   # test a specific drive
 
+# Dependencies. `anvesana setup` installs the pyproject extras that this node's
+# benchmarks need on its OS (see SUITE in src/anvesana/framework/registry.py),
+# plus any listed here, and removes the rest. A CPU-only node listing just cpu
+# and disk installs the core only. System software uv cannot install (GPU
+# drivers, InfiniBand perftest, FPGA runtimes, compilers) is declared per
+# benchmark as `tools`/`hardware` and verified by `anvesana check`.
+[install]
+extras = []                    # e.g. ["nvidia"] for GPU telemetry on a node running only cpu/disk
+
 # Vendor-advertised peaks, for "% of spec" in the run summary. Optional.
 [expected]
 # "tensor.fp16" = 125

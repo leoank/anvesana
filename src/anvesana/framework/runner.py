@@ -82,7 +82,8 @@ def main(args) -> int:
     duration = args.duration or profile.duration_s
     cooldown = profile.cooldown_s if args.cooldown is None else args.cooldown
     specs = _select(profile, args)
-    modules = registry.load_all()
+    # Readiness of each benchmark (packages, tools, hardware), as `anvesana check` reports it.
+    blockers = {s.id: registry.problems(s.module) for s in specs}
     root = store.store_root(args.store)
 
     with store.RunLock(root, profile.id):
@@ -93,6 +94,7 @@ def main(args) -> int:
 
         env = environment.capture()
         preflight = _preflight(env)
+        preflight += [f"{sid} cannot run: {'; '.join(p)}" for sid, p in blockers.items() if p]
         log.write(f"{RULE}\n Benchmark run {run_id}\n Machine : {profile.id} - {profile.description}\n"
                   f" Store   : {run_dir}\n Plan    : {', '.join(s.id for s in specs)}\n"
                   f" Settings: {duration:.0f}s per sustained test, {cooldown:.0f}s cooldown\n{RULE}\n")
@@ -125,15 +127,14 @@ def main(args) -> int:
             leave()
 
             for i, spec in enumerate(specs, 1):
-                mod = modules.get(spec.module)
-                entry = {"id": spec.id, "module": spec.module, "args": spec.args,
-                         "version": getattr(mod, "VERSION", None) if mod and not isinstance(mod, Exception) else None}
-                if mod is None or isinstance(mod, Exception):
-                    reason = str(mod) if mod else f"unknown benchmark module '{spec.module}'"
+                entry = {"id": spec.id, "module": spec.module, "args": spec.args, "version": None}
+                if blockers[spec.id]:
+                    reason = "; ".join(blockers[spec.id])
                     log.write(f"\n[{i}/{len(specs)}] {spec.id}: unavailable ({reason})\n")
                     bench_results.append({**entry, "status": "unavailable", "reason": reason})
                     failures.append(spec.id)
                     continue
+                entry["version"] = registry.load(spec.module).VERSION
                 if i > 1 and cooldown > 0:
                     enter("cooldown")
                     time.sleep(cooldown)

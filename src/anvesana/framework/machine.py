@@ -53,7 +53,24 @@ class Machine:
     expected: dict[str, float] = field(default_factory=dict)
     tolerance_pct: float = 10.0
     tolerance_overrides: dict[str, float] = field(default_factory=dict)
+    install_extras: list[str] = field(default_factory=list)
     source: Path | None = None
+
+    def runnable_here(self) -> list[BenchmarkSpec]:
+        return [b for b in self.benchmarks if b.applies_here()]
+
+    def required_extras(self) -> list[str]:
+        """pyproject extras this node needs: those of every benchmark it runs on
+        this OS, plus [install] extras (e.g. "nvidia" for GPU telemetry on a node
+        that only runs CPU benchmarks)."""
+        from .registry import SUITE
+
+        extras = set(self.install_extras)
+        for spec in self.runnable_here():
+            req = SUITE.get(spec.module)
+            if req and (not req.os or os_tag() in req.os):
+                extras.update(req.extras)
+        return sorted(extras)
 
     def tolerance_for(self, metric: str) -> float:
         """Most specific matching glob wins (longest pattern)."""
@@ -83,6 +100,7 @@ def load(path: Path) -> Machine:
         duration_s=run.get("duration_s", 30.0), cooldown_s=run.get("cooldown_s", 15.0), idle_s=run.get("idle_s", 10.0),
         expected=data.get("expected", {}),
         tolerance_pct=health.get("tolerance_pct", 10.0), tolerance_overrides=health.get("tolerance_overrides", {}),
+        install_extras=data.get("install", {}).get("extras", []),
         source=path,
     )
 

@@ -1,24 +1,30 @@
 [project]
 name = "anvesana"
-version = "0.3.0"
+version = "0.4.0"
 description = "Node health benchmarks: GPU/CPU/memory/disk throughput and telemetry, tracked per machine over time"
 readme = "README.md"
 requires-python = ">=3.12"
+# Core: everything every node needs (CPU, memory and disk benchmarks, telemetry,
+# run records, health checks). Hardware-specific stacks are extras, installed per
+# node from its machine profile by `anvesana setup`.
 dependencies = [
     "numpy>=2.0",
     "psutil>=6.0",
+]
+
+[project.optional-dependencies]
+# NVIDIA GPUs: CUDA driver API + NVRTC bindings, the native CUDA 13 libraries they
+# load (pip wheels, so no CUDA toolkit install), and NVML for GPU telemetry.
+nvidia = [
     "nvidia-ml-py>=13.0",
-    # CUDA driver API + NVRTC bindings and the native CUDA 13 libraries they load.
-    # These ship as pip wheels for win_arm64 and linux_aarch64, so no CUDA toolkit is needed.
     "cuda-python>=13.0",
     "nvidia-cuda-nvrtc>=13.0",
     "nvidia-cuda-runtime>=13.0",
     "nvidia-cublas>=13.0",
 ]
-
-[project.optional-dependencies]
 tensorrt = [
-    # TensorRT for RTX works on both OSes and is the like-for-like comparison.
+    "anvesana[nvidia]",
+    # TensorRT for RTX works on Windows and Linux and is the like-for-like comparison.
     "tensorrt-rtx>=1.7",
     # Full TensorRT: the win_arm64 wheel ships without its Myelin resource DLLs,
     # so every MatMul/Conv build fails there. Linux only.
@@ -26,19 +32,25 @@ tensorrt = [
 ]
 # CUTLASS's profiler is C++: these provide headers, nvcc and the build tools; the
 # host compiler is the system g++. Linux only (MSVC cannot compile CUTLASS SM90+ kernels).
-cutlass = ["nvidia-cutlass>=4.2", "nvidia-cuda-nvcc>=13.0", "nvidia-cuda-cccl>=13.0", "nvidia-curand>=10.0",
-           "cmake>=3.27", "ninja"]
-all = ["anvesana[tensorrt,cutlass]"]
+cutlass = [
+    "anvesana[nvidia]",
+    "nvidia-cutlass>=4.2", "nvidia-cuda-nvcc>=13.0", "nvidia-cuda-cccl>=13.0", "nvidia-curand>=10.0",
+    "cmake>=3.27", "ninja",
+]
+all = ["anvesana[nvidia,tensorrt,cutlass]"]
 
 [project.scripts]
 anvesana = "anvesana.cli:main"
 bench = "anvesana.cli:main"
 
 [tool.uv]
-# Lock only versions that have wheels for both OSes the fleet runs.
+# One lock for the whole fleet: every node installs a subset of it, so a library
+# has the same version wherever it is installed. These are the platforms it must
+# resolve for; add one before adding a node of a new kind.
 required-environments = [
     "sys_platform == 'win32' and platform_machine == 'ARM64'",
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 
 [build-system]

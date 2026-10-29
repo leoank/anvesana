@@ -1,13 +1,18 @@
 """Command line: ``bench <command>`` (or ``python -m anvesana <command>``).
 
+Node setup
+  bench machines [init ID]                list profiles / create one for this host
+  bench setup [--machine ID]              install exactly the extras this node's profile needs
+  bench check [--machine ID]              can every benchmark in the profile run here?
+
 Fleet workflow
   bench run [--machine ID] [--health]     run the machine's suite, store the results
   bench health [RUN] [--against REF]      check a run against baseline / recent median
+  bench fleet                             latest health of every machine; flags stale nodes
   bench history [MACHINE]                 metric trends across stored runs
   bench compare A B                       any two runs side by side
   bench runs [MACHINE]                    list stored runs
   bench baseline promote RUN              make a run the committed reference
-  bench machines [init ID]                list profiles / create one for this host
 
 Single pieces
   bench <benchmark> [...]                 one benchmark, e.g. `bench tensor --duration 10`
@@ -21,7 +26,7 @@ import argparse
 import json
 import sys
 
-from .framework import compare, health, history, registry, runner, store
+from .framework import compare, fleet, health, history, provision, registry, runner, store
 from .framework import machine as machines
 from .hw import monitor
 
@@ -118,8 +123,30 @@ def main(argv=None) -> int:
     p = sub.add_parser("info", help="print the environment as recorded in run.json")
     p.set_defaults(func=_cmd_info)
 
-    for name, mod in registry.load_all().items():
-        if isinstance(mod, Exception):
+    for name, add, func, help_ in (
+            ("setup", provision.add_setup_arguments, provision.setup, "install exactly this node's dependencies"),
+            ("check", provision.add_check_arguments, provision.check, "can every profiled benchmark run here?")):
+        p = sub.add_parser(name, help=help_, description=provision.__doc__,
+                           formatter_class=argparse.RawDescriptionHelpFormatter)
+        add(p)
+        p.set_defaults(func=func)
+    p = sub.add_parser("fleet", help="latest health of every machine", description=fleet.__doc__,
+                       formatter_class=argparse.RawDescriptionHelpFormatter)
+    fleet.add_arguments(p)
+    p.set_defaults(func=fleet.main)
+
+    # Benchmark modules import their (optional, heavy) dependencies, so load only
+    # the one being invoked, or all of them for --help. `setup` in particular must
+    # not hold CUDA libraries open while uv replaces them.
+    argv = sys.argv[1:] if argv is None else argv
+    command = next((a for a in argv if not a.startswith("-")), None)
+    names = [command] if command in registry.SUITE else list(registry.SUITE) if command is None else []
+    for name in names:
+        try:
+            mod = registry.load(name)
+        except ImportError as e:
+            p = sub.add_parser(name, help=f"[benchmark, unavailable: missing {e.name}; run `anvesana setup`]")
+            p.set_defaults(func=lambda a, e=e: _unavailable(e))
             continue
         p = sub.add_parser(name, help=f"[benchmark v{mod.VERSION}] {mod.DESCRIPTION}")
         p.add_argument("--duration", type=float, default=30.0, help="seconds per sustained test")
@@ -129,6 +156,12 @@ def main(argv=None) -> int:
 
     args = parser.parse_args(argv)
     return args.func(args)
+
+
+def _unavailable(e: ImportError) -> int:
+    print(f"This benchmark's dependencies are not installed ({e}). Run `anvesana setup` "
+          f"(or `uv sync --extra <extra>`).")
+    return 2
 
 
 def _run_single(mod, args) -> int:
