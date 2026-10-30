@@ -203,9 +203,25 @@ sensor), AI noise cancellation, LAN manager.
   steps). Directions: Inward / Outward; Color Cycle: Rainbow / Random. A lighting change is
   "select all → set style → save", which matches the bursts in the trace. The same code also drives a
   second controller variant, `0db0:1604`.
+- **Hardware test 2026-10-30 [verified]**: from Windows, unprivileged, via `hid.dll` on the shared
+  device handle (`HidD_SetFeature` report 2, `HidD_GetFeature` report 1):
+  "select all" (`02 01` + 32 × `ff`) then "steady" (`02 02 01 00 00 00 00 00 00 00` + `64 R G B`, one
+  colour stop at position 100) **changed the keyboard to red, green, blue and white**, as observed by
+  the user. Save to flash (`02 a0`) was never sent; the change lasts until MSI Center re-applies its
+  profile or the machine reboots. Not tested yet: zones, the other styles, brightness.
+  - Each reply (read as feature report 1) echoes the command: `02 <cmd> …`. The select-all echo shows
+    only 8 bytes of `ff`, which suggests a 64-bit key/zone bitmap **[inferred]**.
+  - "Get brightness" (`02 b1`) returned only the echo (`02 b1 00 …`): the brightness value is not in the
+    first 16 reply bytes, or it reads as 0 **[open]**.
+- **Backlight on/off is not part of this protocol [verified]**: with the backlight off, the colour
+  commands were accepted but nothing lit up. The backlight is switched with **Fn + F8**, which goes
+  through the keyboard / EC path, not the RGB controller (MSI Center's `KBBacklightSP=0`, `KBBacklight=2`).
+  On Linux, Fn + F8 is probably handled entirely by the EC; whether it also needs an OS key event or a
+  WMI method is open.
 - Linux: no kernel driver; a small userspace tool can drive it via hidraw (`HIDIOCSFEATURE` report 2,
-  then `HIDIOCGFEATURE` report 1). Not yet tested on hardware: the first test needs your go-ahead,
-  since save-to-flash writes the MCU.
+  then `HIDIOCGFEATURE` report 1) with the byte layout above.
+- Test script: `C:\Users\ANKKUM~1\AppData\Local\Temp\claude\...\scratchpad\mystic_test.py` (session
+  scratchpad, not in the repo).
 
 ### Touchpad [verified]
 - Synaptics `06cb:d022` on `\_SB.I2C3.TPD3` (ACPI `SYNA1513`), I2C HID, haptic.
@@ -323,14 +339,15 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
 |---|---|
 | 1. `MSI_ACPI` read-only getters | **done**, all 13 |
 | 2. Mode mapping (User Scenario) | **done**: all 5 modes this model offers (no fan modes / Super Battery on this model) |
-| 3. Mystic Light protocol | **done** without a payload capture: report IDs and sequence from the USB trace, byte layout from MSI's code. Hardware test pending your go-ahead |
+| 3. Mystic Light protocol | **done** without a payload capture: report IDs and sequence from the USB trace, byte layout from MSI's code, **steady colours verified on hardware** (no flash save) |
 
 ## 6. Open questions
 - Pen protocol: MPP 2.x or USI? (pen serial format, ELAN vendor reports)
 - What the `5B3CC38A-…` WMI event carries (hotkeys? tablet mode? AC?)
 - Which EC fields hold fan mode, Cooler Boost and the battery charge limit (shift mode is answered: `Get_AP` byte 3)
-- Mystic Light: meaning of style-command bytes 3–9 per style (speed / direction / wave length), and
-  the 4-zone bit numbering; testable on hardware with your go-ahead
+- Mystic Light: meaning of style-command bytes 3–9 per style (speed / direction / wave length), the
+  4-zone bit numbering, where "get brightness" returns its value
+- Keyboard backlight on/off (Fn + F8): EC-only, or does Linux need to handle a key event / WMI call?
 - Which component each ESRT "Device Firmware" GUID updates
 - Whether the MSI TrueColor ICC profiles are calibrated per unit (compare with another N16 Flip)
 - MSI mode → overlay for Balanced and AI Engine
@@ -354,3 +371,6 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
   model. Added `display`, `power` and `vendor_settings` to `bench inventory`: EDID parsing (CTA-861,
   DisplayID), connector / modes / HDR via the CCD API, brightness levels, ICC profiles (copied),
   sleep states, overlay, full powercfg settings; Linux side from DRM, backlight and `/sys/power`.
+- **2026-10-30**: Tested the Mystic Light protocol on hardware (no flash save). The first two runs
+  showed nothing because the keyboard backlight was off; after the user switched it on with Fn + F8,
+  steady red / green / blue / white worked. So on/off is separate from the RGB controller.
