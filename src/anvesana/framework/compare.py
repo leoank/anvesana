@@ -11,7 +11,7 @@ from . import store
 from .console import Table, num
 from .records import ALL_PHASES, STAT_HIGHER_IS_BETTER, RunRecord, benchmark_of
 
-SYSTEM_KEYS = ["hostname", "platform", "nvidia_driver", "power_profile", "on_ac_power", "ram_gb", "gpu_mem_total_gb",
+SYSTEM_KEYS = ["hostname", "platform", "bios", "nvidia_driver", "power_profile", "on_ac_power", "ram_gb", "gpu_mem_total_gb",
                "gpu_power_limit_w", "gpu_max_sm_clock_mhz", "python"]
 
 

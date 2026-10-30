@@ -24,6 +24,10 @@ uv sync --inexact --locked --quiet
 uv run --no-sync anvesana setup @machineArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+# Hardware / driver inventory: tracks driver and firmware changes between runs. Not fatal.
+uv run --no-sync anvesana inventory collect @machineArgs
+if ($LASTEXITCODE -ne 0) { Write-Warning "inventory collection failed; continuing with the benchmark run" }
+
 $runArgs = @("run", "--no-sync", "anvesana", "run", "--health") + $machineArgs
 if ($Tag) { $runArgs += @("--tag", $Tag) }
 & uv @runArgs

@@ -13,7 +13,7 @@ from . import machine as machines, store
 from .console import RULE, Table, num
 from .records import ALL_PHASES, RunRecord, benchmark_of, is_headline
 
-ENV_KEYS = ["os", "hostname", "platform", "kernel", "cpu", "logical_cpus", "ram_gb", "gpu_mem_total_gb",
+ENV_KEYS = ["os", "hostname", "platform", "kernel", "system_product", "bios", "cpu", "logical_cpus", "ram_gb", "gpu_mem_total_gb",
             "nvidia_driver", "nvrtc", "power_profile", "on_ac_power", "gpu_power_limit_w", "gpu_max_sm_clock_mhz",
             "python"]
 SUBMETRICS = [("avg_power", "avg W", 1), ("efficiency", "per W", 2), ("avg_sm_clock", "SM MHz", 0)]

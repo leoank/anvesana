@@ -18,4 +18,6 @@ done
 # the extras this node's profile needs, from the committed uv.lock.
 uv sync --inexact --locked --quiet
 uv run --no-sync anvesana setup "${machine_args[@]}"
+# Hardware / driver inventory: tracks driver and firmware changes between runs. Not fatal.
+uv run --no-sync anvesana inventory collect "${machine_args[@]}" || echo "inventory collection failed; continuing" >&2
 exec uv run --no-sync anvesana run --health "$@"

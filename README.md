@@ -139,7 +139,66 @@ with an `infiniband` probe added to `HARDWARE_PROBES`.
 
 Run any single benchmark directly: `uv run bench tensor --duration 10 --precisions fp16,nvfp4`.
 
+## Hardware inventory and Linux bring-up
+
+Benchmarks say how fast a node is; `bench inventory` records what it is made of and which driver
+runs each part. On a new SoC that is moving from Windows to Linux, the Windows inventory is the
+bring-up reference, and comparing it with a Linux inventory gives the list of gaps to close.
+
+```bash
+uv run bench inventory collect                 # this host -> $ANVESANA_RESULTS_DIR/<machine>/inventory/<snapshot>/
+uv run bench inventory show --grep NVDA --resources    # SoC blocks: driver, version, ACPI path, MMIO, IRQ
+uv run bench inventory show --packages         # driver packages and the firmware files they install
+uv run bench inventory compare bbaum-pc-7@windows bbaum-pc-7@linux --markdown gap.md
+uv run bench inventory compare bbaum-pc-7@-1 bbaum-pc-7@latest       # driver / firmware drift on one OS
+```
+
+A snapshot contains `inventory.json` (schema in `src/anvesana/inventory/snapshot.py`) and the raw
+firmware the OS was handed:
+
+| Collected | Windows (no admin needed) | Linux (run as root for everything) |
+|---|---|---|
+| devices | present PnP devices: hardware/compatible IDs, ACPI path, parent, function + filter drivers, INF, version, problem code, MMIO/IRQ | ACPI devices (`_STA`, driver bound to the physical node), PCI, USB, platform devices without ACPI |
+| drivers | every kernel driver service and its binary's version | loaded modules |
+| driver packages | third-party driver-store folders: INF copied, every file hashed (DSP/Wi-Fi/BT firmware appear here) | – |
+| kernel | – | release, cmdline, `devices_deferred`, missing firmware, probe and ACPI errors, `kernel.log` |
+| ACPI | `acpi/*.dat`: every table except MSDM (license key), all SSDTs | `acpi/*.dat` from `/sys/firmware/acpi/tables` |
+| SMBIOS | `smbios.bin` (`dmidecode --from-dump`) and a summary without serials | same, or `/sys/class/dmi/id` without root |
+| CPU | per-core MIDR / ID_AA64* registers, core types and clusters | per-core MIDR, cluster, cpufreq range and driver, idle states, Features |
+
+`compare` joins devices on their ACPI namespace path (`\_SB.I2C0`), then on a cross-OS id
+(`acpi:NVDA0200`, `pci:10de:2e03`, `usb:27c6:6090`). Each device gets a verdict:
+
+- **GAP**: Windows drives it; Linux enumerates it but binds no driver, or the probe is deferred (the reason is shown)
+- **MISSING**: Windows drives it; Linux doesn't enumerate it at all. Often a missing bus driver: everything behind an unsupported I2C/SPI/SoundWire controller shows up here.
+- **PROBLEM / NEW / EXTRA / OK**: a problem on the second snapshot / driven only there / present only there / both fine
+
+It also checks that both OSes were handed byte-identical ACPI tables and the same BIOS. If they
+weren't, Linux booted with a different firmware configuration or an override. The exit code is 1
+while any GAP, MISSING or PROBLEM remains, so a scheduled Linux run can track bring-up progress.
+`scripts/scheduled-run.*` collect an inventory before every benchmark run.
+
+Bring-up loop for a new SoC:
+
+1. On Windows: `bench inventory collect`. Review `show --grep <vendor ACPI prefix> --resources`
+   (here `NVDA`) and `show --packages`. These give the block list, its MMIO/IRQ map, and the firmware
+   blobs Linux will need in `/lib/firmware`.
+2. Disassemble the tables: `iasl -e acpi/ssdt*.dat -d acpi/dsdt.dat`. The `_HID`/`_CID`, `_CRS` and
+   `_DSD` of each block are what a Linux driver's ACPI match table and probe read.
+3. Boot Linux on the same BIOS, run `sudo bench inventory collect`, then `compare <machine>@windows
+   <machine>@linux`. Work through the list top-down: controllers (I2C, SPI, GPIO, SoundWire, xHCI)
+   before the devices behind them.
+4. Re-collect after each kernel or firmware change; `compare <machine>@-1 <machine>@latest` on Linux
+   shows what changed.
+
 ## Platform notes (NVIDIA RTX Spark N1X, Windows on ARM)
+
+- First inventory (BIOS Insyde G2621NMS.10B): 10× Cortex-X925 (MIDR `0x410fd851`, cpus 5-9,15-19) and
+  10× Cortex-A725 (`0x410fd871`, cpus 0-4,10-14). There are 32 NVIDIA ACPI devices (`NVDA*`) of 19 types: 7 I2C,
+  3 SPI, GPIO, HD Audio, 6 xHCI (Microsoft's inbox `USBXHCI` plus an NVIDIA lower filter, `nvxhcifilter`, which
+  points to controller quirks), 2 USB4 routers, SoundWire, three HiFi DSPs (`nvadsp`, loading
+  signed `hifi*_cose_sign_image.bin` firmware), NPU (`\_SB.DLA0`, driven by the GPU driver), SCP,
+  platform extension (PEP), root-of-trust mailbox, and Pluton. The IORT comes from MediaTek (`MEDTEK MTKSGI`).
 
 - Full TensorRT's win_arm64 wheel lacks its Myelin resource DLLs, so it cannot build engines on
   Windows. Profiles list it with `os = ["linux"]`. TensorRT for RTX works on both OSes but picks slow

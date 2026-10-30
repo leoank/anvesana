@@ -37,6 +37,7 @@ def capture() -> dict:
         "logical_cpus": psutil.cpu_count(logical=True),
         "physical_cpus": psutil.cpu_count(logical=False),
         "ram_gb": round(psutil.virtual_memory().total / 1e9, 2),
+        **_firmware(),
         "power_profile": _power_profile(),
         "on_ac_power": _on_ac_power(),
         "libraries": _library_versions(),
@@ -102,6 +103,33 @@ def _on_ac_power():
     except Exception:
         return None
     return None if battery is None else bool(battery.power_plugged)
+
+
+def _firmware() -> dict:
+    """BIOS and system identity: a firmware update moves results as much as a driver update."""
+    if sys.platform == "win32":
+        try:
+            import winreg
+
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\BIOS")
+            get = lambda name: str(winreg.QueryValueEx(key, name)[0]).strip()  # noqa: E731
+            return {"bios": f"{get('BIOSVendor')} {get('BIOSVersion')} ({get('BIOSReleaseDate')})",
+                    "system_product": f"{get('SystemManufacturer')} {get('SystemProductName')}"}
+        except OSError:
+            return {}
+    dmi = {}
+    for name in ("bios_vendor", "bios_version", "bios_date", "sys_vendor", "product_name"):
+        try:
+            with open(f"/sys/class/dmi/id/{name}") as f:
+                dmi[name] = f.read().strip()
+        except OSError:
+            pass
+    out = {}
+    if dmi.get("bios_version"):
+        out["bios"] = f"{dmi.get('bios_vendor', '')} {dmi['bios_version']} ({dmi.get('bios_date', '?')})".strip()
+    if dmi.get("product_name"):
+        out["system_product"] = f"{dmi.get('sys_vendor', '')} {dmi['product_name']}".strip()
+    return out
 
 
 def _cpu_name() -> str:

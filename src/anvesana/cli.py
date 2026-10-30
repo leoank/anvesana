@@ -15,6 +15,11 @@ Fleet workflow
   bench runs [MACHINE]                    list stored runs
   bench baseline promote RUN              make a run the committed reference
 
+Hardware inventory (Linux bring-up)
+  bench inventory collect                 devices, drivers, ACPI tables, SMBIOS, CPU registers
+  bench inventory show [REF]              one snapshot: devices with driver, ACPI path, MMIO/IRQ
+  bench inventory compare A B             e.g. <machine>@windows <machine>@linux: the porting gap list
+
 Single pieces
   bench <benchmark> [...]                 one benchmark, e.g. `bench tensor --duration 10`
   bench monitor --output m.csv            telemetry logger
@@ -30,6 +35,7 @@ import sys
 from .framework import compare, fleet, health, history, provision, registry, runner, show, store
 from .framework import machine as machines
 from .hw import monitor
+from .inventory import command as inventory
 
 
 def _cmd_info(args) -> int:
@@ -99,6 +105,7 @@ def main(argv=None) -> int:
                                 ("show", show, "print one run in full"),
                                 ("history", history, "metric trends for a machine"),
                                 ("compare", compare, "compare two runs"),
+                                ("inventory", inventory, "hardware / driver inventory and the Linux porting gap"),
                                 ("monitor", monitor, "telemetry logger only")):
         p = sub.add_parser(name, help=help_, description=module.__doc__,
                            formatter_class=argparse.RawDescriptionHelpFormatter)
