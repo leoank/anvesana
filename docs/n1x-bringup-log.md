@@ -208,7 +208,35 @@ sensor), AI noise cancellation, LAN manager.
   "select all" (`02 01` + 32 × `ff`) then "steady" (`02 02 01 00 00 00 00 00 00 00` + `64 R G B`, one
   colour stop at position 100) **changed the keyboard to red, green, blue and white**, as observed by
   the user. Save to flash (`02 a0`) was never sent; the change lasts until MSI Center re-applies its
-  profile or the machine reboots. Not tested yet: zones, the other styles, brightness.
+  profile or the machine reboots.
+- **Zones and effects, hardware test 2026-10-30 [verified, observed by the user]**. Parameters are
+  taken from `Class_NB.Set_LED_Style`; every command was accepted and echoed (the echo repeats header
+  bytes 2–9, which confirms the field positions):
+
+  | Test | Command after "select" | Result |
+  |---|---|---|
+  | Zones | select `02 01 <1<<z> 00…` then steady, z = 0..3 red / green / blue / white | **4 zones, left to right: zone 0 leftmost … zone 3 rightmost** |
+  | Breath | `02 02 02 58 02 00 00 00 00 00` + stops `00 ff 00 00`, `64 ff 00 00` | worked (red fading) |
+  | Color Cycle | `02 02 03 90 01 00 00 00 00 00` + 7 rainbow stops | worked |
+  | Wave, horizontal | `02 02 04 58 02 00 00 0f 01 00` + rainbow stops | appeared to work (hard for the observer to judge) |
+  | Wave, circular outward | `02 02 04 58 02 00 00 0f 00 01` + rainbow stops | appeared to work (hard to judge) |
+
+  Style-command header, now fully mapped **[verified positions; meanings from MSI's code]**:
+
+  | Byte | Field | Values used by MSI |
+  |---|---|---|
+  | 2 | style | 0 Off, 1 Steady, 2 Breath, 3 Color Cycle, 4 Wave |
+  | 3–4 | period, u16 LE, seconds × 100 | Slowest 8.0 s (`20 03`), Medium 6.0 s (`58 02`), Fastest 4.0 s (`90 01`); 0 for Steady |
+  | 5, 6 | key centre X, Y | 0, 0 |
+  | 7 | wavelength × 10 | 15 (1.5) for Wave |
+  | 8 | LED mode (Wave) | 0 circular, 1 horizontal, 2 vertical |
+  | 9 | direction | Wave: 0 inward, 1 outward; Color Cycle: 0 rainbow, 1 random |
+  | 10+ | colour stops, 4 bytes each: position (0–100), R, G, B | *n* colours at positions 100/n·i, plus a closing stop at 100 repeating the first colour |
+
+  MSI's rainbow: red 0, yellow 17, green 33, cyan 50, blue 67, magenta 83, red 100. Zone select is a
+  bitmap: zone *z* = bit *z* of bitmap byte 0 (only zones 0–3 exist here).
+- Not yet tested: brightness (`02 b0` / `02 b1`; "get" returned no value), vertical wave, random colour
+  cycle, per-key mode (`Enum_LED_LEDMode` Perkey exists in the code, but this is a 4-zone device).
   - Each reply (read as feature report 1) echoes the command: `02 <cmd> …`. The select-all echo shows
     only 8 bytes of `ff`, which suggests a 64-bit key/zone bitmap **[inferred]**.
   - "Get brightness" (`02 b1`) returned only the echo (`02 b1 00 …`): the brightness value is not in the
@@ -345,8 +373,7 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
 - Pen protocol: MPP 2.x or USI? (pen serial format, ELAN vendor reports)
 - What the `5B3CC38A-…` WMI event carries (hotkeys? tablet mode? AC?)
 - Which EC fields hold fan mode, Cooler Boost and the battery charge limit (shift mode is answered: `Get_AP` byte 3)
-- Mystic Light: meaning of style-command bytes 3–9 per style (speed / direction / wave length), the
-  4-zone bit numbering, where "get brightness" returns its value
+- Mystic Light: where "get brightness" returns its value; confirm Wave visually with a slower period
 - Keyboard backlight on/off (Fn + F8): EC-only, or does Linux need to handle a key event / WMI call?
 - Which component each ESRT "Device Firmware" GUID updates
 - Whether the MSI TrueColor ICC profiles are calibrated per unit (compare with another N16 Flip)
@@ -374,3 +401,7 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
 - **2026-10-30**: Tested the Mystic Light protocol on hardware (no flash save). The first two runs
   showed nothing because the keyboard backlight was off; after the user switched it on with Fn + F8,
   steady red / green / blue / white worked. So on/off is separate from the RGB controller.
+- **2026-10-30**: Tested zones and effects (no flash save): 4 zones confirmed left to right; Breath and
+  Color Cycle worked; Wave (horizontal, circular) appeared to work but was hard to judge. Style header
+  bytes 2–9 now fully mapped. Test scripts `mystic_test.py` / `mystic_effects.py` are in the session
+  scratchpad, not the repo.
