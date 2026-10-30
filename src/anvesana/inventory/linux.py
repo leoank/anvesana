@@ -2,10 +2,11 @@
 
   devices   ACPI devices (status from _STA, driver from the physical node that binds it: the
             platform / I2C / SPI / serial-bus child, not the ACPI node itself), PCI and USB
-            devices, and platform devices with no ACPI companion
+            devices, platform devices with no ACPI companion, WMI blocks
+  hid       every HID device: raw report descriptor (hid/*.bin) and its parsed collections
   drivers   loaded modules (/proc/modules) with their versions
   kernel    release, command line, deferred probes, missing firmware, probe errors
-  firmware  ACPI tables and SMBIOS (root only), DMI identity (any user)
+  firmware  ACPI tables and SMBIOS (root only), DMI identity (any user), ACPI-WMI blocks, ESRT
   cpu       per-core MIDR_EL1, cluster, cpufreq range; the Features line
 
 Run it as root for the full picture: ACPI tables, the raw SMBIOS table, debugfs
@@ -21,7 +22,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import firmware
+from . import firmware, hid
 
 # ACPI pseudo-devices (system bus, power/sleep buttons, thermal zones as containers...) and
 # namespace objects without _HID ("device:1a") have no Windows counterpart worth matching.
@@ -37,13 +38,15 @@ def collect(out_dir: Path, sysfs: Path = Path("/sys")) -> dict:
     deferred = _deferred(sysfs, notes)
     kernel = _kernel(out_dir, notes)
     return {"devices": devices(sysfs, deferred), "drivers": _modules(sysfs), "kernel": {**kernel, "deferred": deferred},
-            "firmware": _firmware(sysfs, out_dir, notes), "cpu": _cpu(sysfs), "notes": notes}
+            "hid": _hid(sysfs, out_dir), "firmware": _firmware(sysfs, out_dir, notes), "cpu": _cpu(sysfs),
+            "notes": notes}
 
 
 # ------------------------------------------------------------------ devices
 
 def devices(sysfs: Path, deferred: dict[str, list[str]]) -> list[dict]:
-    out = _acpi_devices(sysfs) + _pci_devices(sysfs) + _usb_devices(sysfs) + _bare_platform_devices(sysfs)
+    out = _acpi_devices(sysfs) + _pci_devices(sysfs) + _usb_devices(sysfs) + _bare_platform_devices(sysfs) + \
+        _wmi_devices(sysfs)
     for d in out:
         reasons = [r for node in d.pop("_nodes") for r in deferred.get(node.split("/", 1)[-1], [])]
         if reasons and d["status"] != "ok":
@@ -140,6 +143,40 @@ def _bare_platform_devices(sysfs: Path) -> list[dict]:
     return out
 
 
+def _wmi_devices(sysfs: Path) -> list[dict]:
+    """/sys/bus/wmi/devices/<GUID>[-n]: one per ACPI-WMI block; vendor drivers bind by GUID."""
+    out = []
+    for dev in sorted((sysfs / "bus/wmi/devices").glob("*")):
+        guid = (_read(dev / "guid") or dev.name[:36]).upper()
+        out.append(_record(f"wmi/{dev.name}", "wmi", f"wmi:{guid}", None, _driver_of(dev), name=f"WMI {guid}",
+                           hardware_ids=[guid], extra={"object_id": _read(dev / "object_id") or _read(dev / "notify_id")},
+                           nodes=[f"wmi/{dev.name}"]))
+    return out
+
+
+def _hid(sysfs: Path, out_dir: Path) -> list[dict]:
+    """Every HID device with its parsed collections; raw descriptors saved to hid/<name>.bin."""
+    out = []
+    for dev in sorted((sysfs / "bus/hid/devices").glob("*")):
+        try:
+            desc = (dev / "report_descriptor").read_bytes()
+        except OSError:
+            continue
+        (out_dir / "hid").mkdir(parents=True, exist_ok=True)
+        fname = f"hid/{dev.name.replace(':', '_')}.bin"
+        (out_dir / fname).write_bytes(desc)
+        bus, vendor, product = (dev.name.split(".")[0].split(":") + ["", "", ""])[:3]
+        uevent = dict(line.split("=", 1) for line in (_read(dev / "uevent") or "").splitlines() if "=" in line)
+        parent = Path(os.path.realpath(dev)).parent
+        drv = _driver_of(dev)
+        out.append({"device": f"hid/{dev.name}", "name": uevent.get("HID_NAME"),
+                    "bus": {"0003": "usb", "0018": "i2c", "001C": "spi", "0005": "bluetooth"}.get(bus.upper(), bus),
+                    "acpi_path": _read(parent / "firmware_node/path"), "vendor": vendor[-4:].lower(),
+                    "product": product[-4:].lower(), "driver": drv["name"] if drv else None, "descriptor": fname,
+                    "collections": hid.parse_descriptor(desc)})
+    return out
+
+
 def _record(id_, bus, mid, acpi_path, driver, *, name, hardware_ids, nodes, internal=None, extra=None) -> dict:
     return {"id": id_, "name": name, "bus": bus, "match_id": mid, "class": None, "manufacturer": None,
             "hardware_ids": hardware_ids, "compatible_ids": [], "acpi_path": acpi_path, "location": [],
@@ -215,6 +252,14 @@ def _firmware(sysfs: Path, out_dir: Path, notes: list[str]) -> dict:
             tables = []
             break
     acpi = firmware.save_acpi_tables(tables, out_dir / "acpi") if tables else []
+    esrt = []
+    for entry in sorted((sysfs / "firmware/efi/esrt/entries").glob("entry*")):
+        fw_type = _read(entry / "fw_type")
+        esrt.append({"guid": (_read(entry / "fw_class") or "").upper(), "name": None,
+                     "type": {"1": "system firmware", "2": "device firmware", "3": "UEFI driver"}.get(fw_type, fw_type),
+                     "version": f"0x{int(_read(entry / 'fw_version') or 0):08x}",
+                     "lowest_supported": f"0x{int(_read(entry / 'lowest_supported_fw_version') or 0):08x}",
+                     "last_attempt_status": _read(entry / "last_attempt_status")})
 
     dmi = {k: _read(sysfs / f"class/dmi/id/{k}") for k in
            ("bios_vendor", "bios_version", "bios_date", "bios_release", "ec_firmware_release", "sys_vendor",
@@ -228,7 +273,7 @@ def _firmware(sysfs: Path, out_dir: Path, notes: list[str]) -> dict:
         smbios.update({"version": f"{major}.{minor}", "file": "smbios.bin", **firmware.smbios_summary(table)})
     except OSError:
         notes.append("raw SMBIOS table is root-only; only /sys/class/dmi/id captured")
-    return {"acpi_tables": acpi, "smbios": smbios}
+    return {"acpi_tables": acpi, "smbios": smbios, "wmi": firmware.wmi_blocks(tables), "esrt": esrt}
 
 
 # ------------------------------------------------------------------ CPU

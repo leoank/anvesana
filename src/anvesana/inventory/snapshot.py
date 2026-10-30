@@ -5,6 +5,10 @@
     acpi/*.dat         raw ACPI tables (iasl -e acpi/ssdt*.dat -d acpi/dsdt.dat)
     smbios.bin         raw SMBIOS in dmidecode --dump-bin layout (dmidecode --from-dump smbios.bin)
     drivers/<pkg>/     Windows: the INF of every third-party driver package a device uses
+    hid/*.bin          Linux: raw HID report descriptors
+  $ANVESANA_RESULTS_DIR/<machine>/inventory/firmware/<sha256[:16]>_<name>
+                       Windows with --copy-firmware: firmware blobs from driver packages, stored
+                       once per content and referenced from each snapshot's packages[].files[]
     kernel.log         Linux: the boot's kernel log
 
 inventory.json (schema version 1):
@@ -20,8 +24,11 @@ inventory.json (schema version 1):
                  resources (Windows): {mem: [[start, end]], irq: [...], io, dma}
   drivers        Windows: kernel driver services; Linux: loaded modules
   packages       Windows: third-party driver-store folders and their files
+  hid            [{device, name, bus, acpi_path, vendor, product, collections: [{usage_page, usage,
+                   name, reports: {input|output|feature: [{report_id, usage_page, usages, bits, count}]}}]}]
   kernel         Linux: release, cmdline, deferred probes, missing firmware, probe/ACPI errors
-  firmware       {acpi_tables: [header + crc32 + file], smbios: summary}
+  firmware       {acpi_tables: [header + crc32 + file], smbios: summary,
+                  wmi: [ACPI-WMI blocks from _WDG: guid, kind, object_id], esrt: [capsule-updatable firmware]}
   cpu            {cores: [{cpu, midr, core, registers, max_mhz, ...}], clusters, features}
   notes          what could not be collected and why
 
@@ -54,7 +61,7 @@ def inventory_root(root: Path, mid: str) -> Path:
     return root / mid / "inventory"
 
 
-def collect(root: Path, mid: str, log=print) -> Path:
+def collect(root: Path, mid: str, copy_firmware: bool = False, log=print) -> Path:
     started = dt.datetime.now().astimezone()
     snapshot_id = f"{mid}_{started.strftime('%Y-%m-%d_%H%M%S')}_{environment.os_tag()}"
     out = inventory_root(root, mid) / snapshot_id
@@ -71,7 +78,9 @@ def collect(root: Path, mid: str, log=print) -> Path:
         else:
             raise SystemExit(f"no inventory collector for {sys.platform}")
         log(f"Collecting inventory for {mid} into {out} ...")
-        data = collector.collect(out)
+        # Firmware blobs are shared by the machine's snapshots (content-addressed), not per snapshot.
+        fw_dir = inventory_root(root, mid) / "firmware" if copy_firmware else None
+        data = collector.collect(out, fw_dir) if sys.platform == "win32" else collector.collect(out)
     except BaseException:
         shutil.rmtree(out, ignore_errors=True)
         raise

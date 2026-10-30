@@ -23,7 +23,7 @@ from pathlib import Path
 
 from ..framework import store
 from ..framework.console import RULE, Table
-from . import snapshot
+from . import hid, snapshot
 
 # Enumerators of software-only devices (volumes, software components, root-enumerated
 # virtual devices, hub/terminal-services stubs): no hardware to port.
@@ -39,6 +39,8 @@ def add_arguments(p):
     sub = p.add_subparsers(dest="action", required=True)
     c = sub.add_parser("collect", help="snapshot this host's devices, drivers and firmware tables")
     c.add_argument("--machine", help="machine id (default: this host's profile, else its hostname)")
+    c.add_argument("--copy-firmware", action="store_true",
+                   help="also copy firmware blobs from driver packages into the store (Windows; deduplicated)")
     c.add_argument("--store", help="results store")
 
     c = sub.add_parser("list", help="stored snapshots")
@@ -50,6 +52,7 @@ def add_arguments(p):
     _filters(c)
     c.add_argument("--resources", action="store_true", help="add MMIO ranges and IRQs (Windows snapshots)")
     c.add_argument("--packages", action="store_true", help="list every file of each driver package")
+    c.add_argument("--hid", action="store_true", help="list every field of every HID report")
     c.add_argument("--json", action="store_true", help="print the selected devices as JSON")
     c.add_argument("--store", help="results store")
 
@@ -78,7 +81,7 @@ def main(args) -> int:
 # ------------------------------------------------------------------ collect / list
 
 def _collect(args, root: Path) -> int:
-    path = snapshot.collect(root, snapshot.machine_id(args.machine))
+    path = snapshot.collect(root, snapshot.machine_id(args.machine), copy_firmware=args.copy_firmware)
     doc = snapshot.load(path)
     devs = doc["devices"]
     hw = [d for d in devs if _is_hardware(d)]
@@ -197,7 +200,33 @@ def _show(args, root: Path) -> int:
             for pkg in doc["packages"]:
                 print(f"\n {pkg['package']}")
                 for f in pkg["files"]:
-                    print(f"   {f['file']:<48} {f['size']:>10,}  {(f.get('sha256') or '')[:16]}")
+                    print(f"   {f['file']:<48} {f['size']:>10,}  {(f.get('sha256') or '')[:16]}  {f.get('copied_to') or ''}")
+
+    if doc.get("hid"):
+        t = Table("HID devices (--hid for every report field)", ["device", "vendor:product", "ACPI path", "collections"])
+        for h in doc["hid"]:
+            t.add((h.get("product_string") or h.get("name") or h["device"])[:36], f"{h['vendor']}:{h['product']}",
+                  h.get("acpi_path") or "", hid.summary(h["collections"])[:100])
+        print(t.text())
+        if args.hid:
+            for h in doc["hid"]:
+                print(f"\n {h['device']}  {h['vendor']}:{h['product']}  {h.get('acpi_path') or ''}")
+                for c in h["collections"]:
+                    print(f"   {c['name']} (page 0x{c['usage_page']:02x} usage 0x{c['usage']:02x})")
+                    for rtype, fields in c["reports"].items():
+                        print(f"     {rtype:<8} " + "; ".join(hid.field_text(f) for f in fields))
+
+    fw = doc.get("firmware", {})
+    if fw.get("wmi"):
+        t = Table("ACPI-WMI blocks (_WDG): Linux binds WMI drivers by these GUIDs", ["GUID", "kind", "object", "table"])
+        for w in fw["wmi"]:
+            t.add(w["guid"], w["kind"], w["object_id"], w["table"])
+        print(t.text())
+    if fw.get("esrt"):
+        t = Table("UEFI ESRT: capsule-updatable firmware (fwupd on Linux)", ["GUID", "name", "type", "version", "lowest"])
+        for e in fw["esrt"]:
+            t.add(e["guid"], e.get("name") or "", e.get("type") or "", e["version"], e["lowest_supported"])
+        print(t.text())
 
     kernel = doc.get("kernel") or {}
     for key, title in (("deferred", "Deferred probes"), ("missing_firmware", "Missing firmware"),
@@ -317,6 +346,8 @@ def _compare(args, root: Path) -> int:
         where = paths[0] + (f" +{len(paths) - 1} more" if len(paths) > 1 else "") if paths else ""
         t.add(v, ref["match_id"], len(g), (ref.get("name") or "")[:40], where, _side(x), _side(y))
     tables.append(t)
+    if not same_os:
+        tables += _platform_tables(a, b, la, lb)
 
     summary = ", ".join(f"{counts[v]} {v}" for v in VERDICTS if counts[v]) or "no differences"
     legend = ("GAP: driven on A, present but not driven on B.  MISSING: driven on A, not enumerated on B.  "
@@ -332,6 +363,37 @@ def _compare(args, root: Path) -> int:
             + "\n".join(tb.markdown() for tb in tables) + "\n", encoding="utf-8")
         print(f"Wrote {args.markdown}")
     return 1 if counts["GAP"] or counts["MISSING"] or counts["PROBLEM"] else 0
+
+
+def _platform_tables(a: dict, b: dict, la: str, lb: str) -> list[Table]:
+    """Cross-OS: ACPI-WMI blocks (vendor fan / keyboard / hotkey interfaces) and HID devices
+    (touch, pen, touchpad, keyboard, RGB controllers), each with the driver the other OS binds."""
+    tables = []
+    linux = b if b.get("os") == "linux" else a if a.get("os") == "linux" else None
+    wmi_drivers = {d["match_id"][4:]: _driver_text(d) if d.get("driver") else "(unbound)"
+                   for d in (linux or {}).get("devices", []) if d.get("bus") == "wmi"}
+    blocks = {w["guid"]: w for doc in (a, b) for w in doc.get("firmware", {}).get("wmi", [])}
+    if blocks:
+        t = Table("ACPI-WMI blocks (_WDG) and the Linux driver bound to each", ["GUID", "kind", "object", "Linux driver"])
+        for guid, w in sorted(blocks.items()):
+            drv = wmi_drivers.get(guid, "(not enumerated)" if linux else "-")
+            t.add(guid, w["kind"], w["object_id"], drv)
+        tables.append(t)
+
+    def hid_index(doc):
+        return {(h["vendor"], h["product"]): h for h in doc.get("hid", [])}
+
+    ha, hb = hid_index(a), hid_index(b)
+    if ha or hb:
+        t = Table("HID devices", ["vendor:product", "name", "ACPI path", "collections", la, lb])
+        for key in sorted(set(ha) | set(hb)):
+            x, y = ha.get(key), hb.get(key)
+            ref = x or y
+            cols = hid.summary(ref.get("collections", []))
+            t.add(":".join(key), (ref.get("product_string") or ref.get("name") or "")[:28], ref.get("acpi_path") or "",
+                  cols[:60], (x.get("driver") or "present") if x else "-", (y.get("driver") or "present") if y else "-")
+        tables.append(t)
+    return tables
 
 
 def _bios(doc: dict) -> str | None:

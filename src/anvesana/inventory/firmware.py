@@ -10,6 +10,7 @@ work on them directly:
 from __future__ import annotations
 
 import struct
+import uuid
 import zlib
 
 # MSDM holds the OEM Windows product key; it says nothing about the hardware.
@@ -42,6 +43,54 @@ def save_acpi_tables(tables: list[bytes], out_dir) -> list[dict]:
         (out_dir / name).write_bytes(data[:h["length"]])
         headers.append({**h, "file": f"acpi/{name}"})
     return headers
+
+
+# ------------------------------------------------------------------ ACPI-WMI
+
+_WMI_FLAGS = {0x1: "expensive", 0x2: "method", 0x4: "string", 0x8: "event"}
+
+
+def wmi_blocks(tables: list[bytes]) -> list[dict]:
+    """ACPI-WMI interfaces from every _WDG buffer in the DSDT/SSDTs: the GUIDs Linux's WMI bus
+    enumerates (/sys/bus/wmi/devices/<GUID>) and vendor drivers (fan, keyboard light, hotkeys,
+    EC access) bind to. Windows exposes the same blocks as root\\wmi classes."""
+    out = []
+    for data in tables:
+        if data[:4] not in (b"DSDT", b"SSDT"):
+            continue
+        h = acpi_header(data)
+        start = 0
+        while (i := data.find(b"_WDG", start)) >= 0:
+            start = i + 4
+            buf = _aml_buffer(data, i + 4)
+            if buf is None or len(buf) % 20:
+                continue
+            for off in range(0, len(buf), 20):
+                guid = str(uuid.UUID(bytes_le=bytes(buf[off:off + 16]))).upper()
+                oid, count, flags = buf[off + 16:off + 18], buf[off + 18], buf[off + 19]
+                kinds = [n for bit, n in _WMI_FLAGS.items() if flags & bit] or ["data"]
+                out.append({"guid": guid, "kind": "+".join(kinds), "instances": count,
+                            "object_id": f"notify 0x{oid[0]:02x}" if flags & 0x8 else _text(bytes(oid)),
+                            "table": f"{h['signature']} {h['oem_table_id']}"})
+    return out
+
+
+def _aml_buffer(data: bytes, i: int) -> bytes | None:
+    """Name(_WDG, Buffer(n) {...}): BufferOp, PkgLength, BufferSize term, bytes."""
+    if i >= len(data) or data[i] != 0x11:
+        return None
+    lead = data[i + 1]
+    extra = lead >> 6
+    pkglen = (lead & 0x3F) if not extra else (lead & 0x0F) | int.from_bytes(data[i + 2:i + 2 + extra], "little") << 4
+    j = i + 2 + extra
+    op = data[j]
+    size_len = {0x0A: 1, 0x0B: 2, 0x0C: 4}.get(op)
+    if size_len is None:
+        return None
+    size = int.from_bytes(data[j + 1:j + 1 + size_len], "little")
+    body = j + 1 + size_len
+    end = i + 1 + pkglen
+    return data[body:min(body + size, end)]
 
 
 # ------------------------------------------------------------------ SMBIOS

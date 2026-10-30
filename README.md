@@ -149,6 +149,8 @@ bring-up reference, and comparing it with a Linux inventory gives the list of ga
 uv run bench inventory collect                 # this host -> $ANVESANA_RESULTS_DIR/<machine>/inventory/<snapshot>/
 uv run bench inventory show --grep NVDA --resources    # SoC blocks: driver, version, ACPI path, MMIO, IRQ
 uv run bench inventory show --packages         # driver packages and the firmware files they install
+uv run bench inventory show --hid              # every HID report field: touch, pen, touchpad, keyboard, RGB
+uv run bench inventory collect --copy-firmware # also keep the firmware blobs (deduplicated per machine)
 uv run bench inventory compare bbaum-pc-7@windows bbaum-pc-7@linux --markdown gap.md
 uv run bench inventory compare bbaum-pc-7@-1 bbaum-pc-7@latest       # driver / firmware drift on one OS
 ```
@@ -160,7 +162,10 @@ firmware the OS was handed:
 |---|---|---|
 | devices | present PnP devices: hardware/compatible IDs, ACPI path, parent, function + filter drivers, INF, version, problem code, MMIO/IRQ | ACPI devices (`_STA`, driver bound to the physical node), PCI, USB, platform devices without ACPI |
 | drivers | every kernel driver service and its binary's version | loaded modules |
-| driver packages | third-party driver-store folders: INF copied, every file hashed (DSP/Wi-Fi/BT firmware appear here) | – |
+| driver packages | third-party driver-store folders: INF copied, every file hashed; `--copy-firmware` copies firmware blobs to `<machine>/inventory/firmware/` once per content | – |
+| HID | every top-level collection with its per-report fields (from `hid.dll` caps; sensor-stack collections are not readable) | raw `report_descriptor` per device (`hid/*.bin`) and the same parsed collections |
+| ACPI-WMI | `_WDG` blocks parsed from the tables: the GUIDs Linux's WMI bus binds drivers to | same, plus each WMI device's bound driver |
+| ESRT | capsule-updatable firmware (GUID, type, version) | `/sys/firmware/efi/esrt` (what fwupd uses) |
 | kernel | – | release, cmdline, `devices_deferred`, missing firmware, probe and ACPI errors, `kernel.log` |
 | ACPI | `acpi/*.dat`: every table except MSDM (license key), all SSDTs | `acpi/*.dat` from `/sys/firmware/acpi/tables` |
 | SMBIOS | `smbios.bin` (`dmidecode --from-dump`) and a summary without serials | same, or `/sys/class/dmi/id` without root |
@@ -199,6 +204,23 @@ Bring-up loop for a new SoC:
   points to controller quirks), 2 USB4 routers, SoundWire, three HiFi DSPs (`nvadsp`, loading
   signed `hifi*_cose_sign_image.bin` firmware), NPU (`\_SB.DLA0`, driven by the GPU driver), SCP,
   platform extension (PEP), root-of-trust mailbox, and Pluton. The IORT comes from MediaTek (`MEDTEK MTKSGI`).
+- Vendor controls (MSI Center S, inventory of 2026-10-30, EC firmware 2621EMS1.109):
+  - **Power / fan:** the `MSI_ACPI` WMI class. Its methods `Get/Set_EC`, `_Fan`, `_Thermal`, `_Power`,
+    `_Device`, `_AP` and others are the ACPI-WMI method block `ABBC0F6E-8EA1-11D1-00A0-C90629100000`
+    (object `AM`). Events arrive on `5B3CC38A-…` (notify 0xC0). MSI Center keeps the "Shift mode"
+    in an EC register and also drives Windows power-mode overlays and NVIDIA PCF power tables
+    (`NVDA0820`). Querying the class needs admin.
+  - **Keyboard RGB** ("4 Zone"): the internal USB HID `1462:1609` "MysticLight MS-1609". It has
+    vendor page 0xFF and 64-byte reports, and is written with HID feature/output reports. The
+    I2C keyboard (`0db0:1606`, `\_SB.I2C2.TPD0`) carries no lighting controls.
+  - **Touchpad:** Synaptics `06cb:d022` on `\_SB.I2C3.TPD3`, a standard Precision Touchpad plus a
+    vendor collection with reports 9–12. That matches RMI-over-HID, and the Synaptics install sets
+    `SynRMIHID=1`. Haptic intensity and edge-slide volume/brightness gestures are set by
+    Synaptics' `SynTPEnh` over that vendor channel; there is no standard HID haptics collection.
+  - **Touch screen + pen:** ELAN `04f3:4516` on `\_SB.I2C1.TPL1`. The pen collection reports pressure
+    (16-bit), X/Y tilt, azimuth, eraser, two barrel buttons, battery strength and a transducer
+    serial. MSI Pen reads the battery from an ELAN vendor collection and also handles the pen
+    garage and a Bluetooth shortcut button.
 
 - Full TensorRT's win_arm64 wheel lacks its Myelin resource DLLs, so it cannot build engines on
   Windows. Profiles list it with `os = ["linux"]`. TensorRT for RTX works on both OSes but picks slow

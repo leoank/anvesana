@@ -4,9 +4,11 @@
             and filter drivers, INF / version / provider, problem code, MMIO / IRQ resources
   drivers   every kernel driver service with its binary's version resource
   packages  third-party driver-store folders: the INF (copied) and every file it installs
-            (listed with size and hash; DSP / NPU firmware blobs show up here)
+            (listed with size and hash; with a firmware dir, firmware blobs are copied too)
+  hid       every HID top-level collection: usage, report sizes, per-report fields (hid.dll caps)
   firmware  ACPI tables (GetSystemFirmwareTable; SSDTs from the HKLM\\HARDWARE\\ACPI mirror,
-            since the API returns only the first table of a signature), raw SMBIOS
+            since the API returns only the first table of a signature), raw SMBIOS, ACPI-WMI
+            blocks (_WDG), UEFI ESRT
   cpu       per-core ID registers (MIDR_EL1, ID_AA64*_EL1) from the processor registry keys
 """
 
@@ -77,7 +79,18 @@ $drivers = foreach ($d in Get-CimInstance Win32_SystemDriver) {
 @{ devices = @($devices); drivers = @($drivers) } | ConvertTo-Json -Depth 6 -Compress
 """
 
-HASH_LIMIT = 32 << 20
+HASH_LIMIT = 96 << 20
+# Firmware images the hardware loads (DSP, GSP, Wi-Fi/BT, microcode).
+FIRMWARE_SUFFIXES = {".bin", ".dat", ".fw", ".img", ".elf", ".hex", ".mbn", ".ucode", ".sig"}
+FIRMWARE_LIMIT = 64 << 20
+# NVIDIA display-driver .bin files that are user-mode data, not firmware: CUDA fatbins,
+# OptiX kernels, the driver settings database.
+NOT_FIRMWARE = {"nvcubins.bin", "nvoptix.bin", "nvdrsdb.bin"}
+
+
+def is_firmware(name: str, size: int) -> bool:
+    return (Path(name).suffix.lower() in FIRMWARE_SUFFIXES and size <= FIRMWARE_LIMIT
+            and name.lower() not in NOT_FIRMWARE)
 
 PROBLEMS = {1: "not configured", 3: "driver may be corrupted", 10: "cannot start", 12: "resource conflict",
             18: "reinstall drivers", 19: "registry problem", 21: "being removed", 22: "disabled",
@@ -93,7 +106,7 @@ def is_admin() -> bool:
         return False
 
 
-def collect(out_dir: Path) -> dict:
+def collect(out_dir: Path, firmware_dir: Path | None = None) -> dict:
     raw = _powershell(_SCRIPT)
     devices = [_device(d) for d in raw.get("devices") or []]
     drivers = sorted(raw.get("drivers") or [], key=lambda d: d["name"].lower())
@@ -101,6 +114,7 @@ def collect(out_dir: Path) -> dict:
 
     tables = _acpi_tables()
     acpi = firmware.save_acpi_tables(tables, out_dir / "acpi") if tables else []
+    wmi = firmware.wmi_blocks(tables)
     if not acpi:
         notes.append("ACPI tables not readable")
     smbios = {}
@@ -113,8 +127,49 @@ def collect(out_dir: Path) -> dict:
     else:
         notes.append("SMBIOS not readable")
 
-    return {"devices": devices, "drivers": drivers, "packages": _driver_packages(devices, drivers, out_dir),
-            "firmware": {"acpi_tables": acpi, "smbios": smbios}, "cpu": _cpu(), "notes": notes}
+    return {"devices": devices, "drivers": drivers,
+            "packages": _driver_packages(devices, drivers, out_dir, firmware_dir), "hid": _hid_devices(devices),
+            "firmware": {"acpi_tables": acpi, "smbios": smbios, "wmi": wmi, "esrt": _esrt(devices)},
+            "cpu": _cpu(), "notes": notes}
+
+
+def _hid_devices(devices: list[dict]) -> list[dict]:
+    """HID collections grouped under the device that carries them (ACPI\\ELAN9024 -> touch
+    screen, pen and vendor collections), in the same shape the Linux collector produces."""
+    by_id = {d["id"].upper(): d for d in devices}
+    out: dict[str, dict] = {}
+    for inst, col in sorted(_hid_collections().items()):
+        child = by_id.get(inst) or {}
+        parent = by_id.get((child.get("parent") or "").upper()) or child
+        key = parent.get("id") or inst
+        entry = out.setdefault(key, {"device": key, "name": parent.get("name"), "bus": parent.get("bus"),
+                                     "acpi_path": parent.get("acpi_path"), "vendor": col["vendor"],
+                                     "product": col["product"], "version": col["version"],
+                                     "product_string": col["product_string"], "collections": []})
+        entry["collections"].append({k: col[k] for k in ("usage_page", "usage", "name", "report_bytes", "reports")}
+                                    | {"id": inst})
+    return list(out.values())
+
+
+def _esrt(devices: list[dict]) -> list[dict]:
+    r"""HKLM\HARDWARE\UEFI\ESRT: firmware the platform can update by UEFI capsule (fwupd on Linux)."""
+    names = {d["id"].split("\\")[1].lower().removeprefix("res_"): d.get("name")
+             for d in devices if d["id"].upper().startswith("UEFI\\RES_")}
+    out = []
+    try:
+        root = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\UEFI\ESRT")
+    except OSError:
+        return out
+    for guid in _subkeys(root):
+        key = winreg.OpenKey(root, guid)
+        values = {winreg.EnumValue(key, i)[0]: winreg.EnumValue(key, i)[1] for i in range(winreg.QueryInfoKey(key)[1])}
+        out.append({"guid": guid.strip("{}").upper(), "name": names.get(guid.lower()),
+                    "type": {1: "system firmware", 2: "device firmware", 3: "UEFI driver"}.get(values.get("Type"),
+                                                                                              values.get("Type")),
+                    "version": f"0x{values.get('Version', 0):08x}",
+                    "lowest_supported": f"0x{values.get('LowestSupportedVersion', 0):08x}",
+                    "last_attempt_status": values.get("LastAttemptStatus")})
+    return out
 
 
 def _powershell(script: str) -> dict:
@@ -195,7 +250,8 @@ def _list(v) -> list:
 
 # ------------------------------------------------------------------ driver packages
 
-def _driver_packages(devices: list[dict], drivers: list[dict], out_dir: Path) -> list[dict]:
+def _driver_packages(devices: list[dict], drivers: list[dict], out_dir: Path,
+                     firmware_dir: Path | None = None) -> list[dict]:
     """Driver-store folders behind every non-Microsoft driver a device uses: what a Linux port has
     to replace, including firmware the hardware loads at runtime (DSPs, Wi-Fi/BT, ...)."""
     used = {n.lower() for d in devices if d["driver"]
@@ -224,6 +280,14 @@ def _driver_packages(devices: list[dict], drivers: list[dict], out_dir: Path) ->
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(p, dest)
                 entry["copied_to"] = dest.relative_to(out_dir).as_posix()
+            elif firmware_dir and is_firmware(p.name, size) and entry["sha256"]:
+                # Content-addressed and shared by the machine's snapshots: a blob is stored once
+                # until a driver update changes it.
+                dest = firmware_dir / f"{entry['sha256'][:16]}_{p.name}"
+                if not dest.exists():
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(p, dest)
+                entry["copied_to"] = os.path.relpath(dest, out_dir).replace("\\", "/")
             files.append(entry)
         out.append({"package": folder.name, "services": sorted(services), "files": files})
     return out
@@ -294,6 +358,145 @@ def _registry_ssdts() -> list[bytes]:
 
 def _subkeys(key) -> list[str]:
     return [winreg.EnumKey(key, i) for i in range(winreg.QueryInfoKey(key)[0])]
+
+
+# ------------------------------------------------------------------ HID
+
+class _GUID(ctypes.Structure):
+    _fields_ = [("d1", ctypes.c_uint32), ("d2", ctypes.c_uint16), ("d3", ctypes.c_uint16), ("d4", ctypes.c_ubyte * 8)]
+
+
+class _IFACE(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_uint32), ("guid", _GUID), ("flags", ctypes.c_uint32),
+                ("reserved", ctypes.c_size_t)]
+
+
+class _DEVINFO(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_uint32), ("guid", _GUID), ("devinst", ctypes.c_uint32),
+                ("reserved", ctypes.c_size_t)]
+
+
+_HIDP_SUCCESS = 0x00110000
+_REPORT_TYPES = ("input", "output", "feature")
+
+
+def _hid_collections() -> dict[str, dict]:
+    """{instance id: collection} for every HID top-level collection, from hid.dll's parsed caps.
+    A zero-access handle is enough, so collections Windows holds exclusively (keyboard, mouse,
+    digitizers) are included."""
+    hid, setup = ctypes.WinDLL("hid"), ctypes.WinDLL("setupapi", use_last_error=True)
+    setup.SetupDiGetClassDevsW.restype = ctypes.c_void_p
+    setup.SetupDiGetClassDevsW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_void_p, ctypes.c_uint32]
+    setup.SetupDiEnumDeviceInterfaces.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
+                                                  ctypes.c_void_p]
+    setup.SetupDiGetDeviceInterfaceDetailW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                                       ctypes.c_uint32, ctypes.c_void_p, ctypes.c_void_p]
+    setup.SetupDiGetDeviceInstanceIdW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_wchar_p,
+                                                  ctypes.c_uint32, ctypes.c_void_p]
+    setup.SetupDiDestroyDeviceInfoList.argtypes = [ctypes.c_void_p]
+    _k32.CreateFileW.restype = ctypes.c_void_p
+    _k32.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p,
+                                 ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+    _k32.CloseHandle.argtypes = [ctypes.c_void_p]
+    for fn in ("HidD_GetAttributes", "HidD_GetPreparsedData", "HidD_GetProductString", "HidD_GetManufacturerString"):
+        getattr(hid, fn).argtypes = [ctypes.c_void_p, ctypes.c_void_p] + ([ctypes.c_uint32] if "String" in fn else [])
+    hid.HidD_FreePreparsedData.argtypes = [ctypes.c_void_p]
+    hid.HidP_GetCaps.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    hid.HidP_GetCaps.restype = ctypes.c_uint32
+    for fn in ("HidP_GetButtonCaps", "HidP_GetValueCaps"):
+        getattr(hid, fn).argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+        getattr(hid, fn).restype = ctypes.c_uint32
+
+    guid = _GUID()
+    hid.HidD_GetHidGuid(ctypes.byref(guid))
+    info = setup.SetupDiGetClassDevsW(ctypes.byref(guid), None, None, 0x2 | 0x10)  # PRESENT | DEVICEINTERFACE
+    out = {}
+    try:
+        for index in range(1024):
+            iface = _IFACE(cbSize=ctypes.sizeof(_IFACE))
+            if not setup.SetupDiEnumDeviceInterfaces(info, None, ctypes.byref(guid), index, ctypes.byref(iface)):
+                break
+            need = ctypes.c_uint32()
+            setup.SetupDiGetDeviceInterfaceDetailW(info, ctypes.byref(iface), None, 0, ctypes.byref(need), None)
+            buf = ctypes.create_string_buffer(need.value)
+            struct.pack_into("<I", buf, 0, 8)  # SP_DEVICE_INTERFACE_DETAIL_DATA_W.cbSize on 64-bit
+            dev = _DEVINFO(cbSize=ctypes.sizeof(_DEVINFO))
+            if not setup.SetupDiGetDeviceInterfaceDetailW(info, ctypes.byref(iface), buf, need, None,
+                                                         ctypes.byref(dev)):
+                continue
+            path = ctypes.wstring_at(ctypes.addressof(buf) + 4)
+            inst = ctypes.create_unicode_buffer(512)
+            setup.SetupDiGetDeviceInstanceIdW(info, ctypes.byref(dev), inst, 512, None)
+            col = _hid_caps(hid, path)
+            if col:
+                out[inst.value.upper()] = col
+    finally:
+        setup.SetupDiDestroyDeviceInfoList(info)
+    return out
+
+
+def _hid_caps(hid, path: str) -> dict | None:
+    handle = _k32.CreateFileW(path, 0, 3, None, 3, 0, None)  # no access, share read/write, OPEN_EXISTING
+    if handle in (None, ctypes.c_void_p(-1).value):
+        return None
+    try:
+        attrs = (ctypes.c_ubyte * 12)()
+        struct.pack_into("<I", attrs, 0, 12)
+        hid.HidD_GetAttributes(handle, attrs)
+        _, vid, pid, ver = struct.unpack("<IHHH", bytes(attrs)[:10])
+        product = ctypes.create_unicode_buffer(128)
+        hid.HidD_GetProductString(handle, product, ctypes.sizeof(product))
+        pp = ctypes.c_void_p()
+        if not hid.HidD_GetPreparsedData(handle, ctypes.byref(pp)):
+            return None
+        try:
+            caps = (ctypes.c_ushort * 32)()
+            if hid.HidP_GetCaps(pp, caps) != _HIDP_SUCCESS:
+                return None
+            usage, page, in_len, out_len, feat_len = caps[0], caps[1], caps[2], caps[3], caps[4]
+            reports = {}
+            # HIDP_CAPS after Reserved[17]: link nodes, then (buttons, values, indices) x input/output/feature
+            for rtype, n_buttons, n_values in ((0, caps[23], caps[24]), (1, caps[26], caps[27]), (2, caps[29], caps[30])):
+                fields = _caps(hid.HidP_GetButtonCaps, rtype, n_buttons, pp, button=True) + \
+                    _caps(hid.HidP_GetValueCaps, rtype, n_values, pp, button=False)
+                if fields:
+                    reports[_REPORT_TYPES[rtype]] = sorted(fields, key=lambda f: (f["report_id"], f["usage_page"]))
+            from . import hid as hidinfo
+
+            return {"vendor": f"{vid:04x}", "product": f"{pid:04x}", "version": f"{ver:04x}",
+                    "product_string": product.value or None, "usage_page": page, "usage": usage,
+                    "name": hidinfo.name(page, usage),
+                    "report_bytes": {"input": in_len, "output": out_len, "feature": feat_len}, "reports": reports}
+        finally:
+            hid.HidD_FreePreparsedData(pp)
+    finally:
+        _k32.CloseHandle(handle)
+
+
+def _caps(fn, rtype: int, count: int, pp, button: bool) -> list[dict]:
+    """HIDP_BUTTON_CAPS / HIDP_VALUE_CAPS (72 bytes each), unpacked by offset."""
+    if not count:
+        return []
+    buf = (ctypes.c_ubyte * (72 * count))()
+    n = ctypes.c_ushort(count)
+    if fn(rtype, buf, ctypes.byref(n), pp) != _HIDP_SUCCESS:
+        return []
+    raw, out = bytes(buf), []
+    for k in range(n.value):
+        c = raw[72 * k:72 * (k + 1)]
+        page, rid = struct.unpack_from("<HB", c, 0)
+        is_range = c[12]
+        lo, hi = struct.unpack_from("<HH", c, 56)
+        field = {"report_id": rid, "usage_page": page, "usages": [lo, hi] if is_range else [lo]}
+        if is_range:
+            field["range"] = True
+        if button:
+            field.update(bits=1, count=(hi - lo + 1) if is_range else 1)
+        else:
+            bits, rcount = struct.unpack_from("<HH", c, 18)
+            field.update(bits=bits, count=rcount)
+        out.append(field)
+    return out
 
 
 # ------------------------------------------------------------------ CPU
