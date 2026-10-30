@@ -198,6 +198,10 @@ Bring-up loop for a new SoC:
 
 ## Platform notes (NVIDIA RTX Spark N1X, Windows on ARM)
 
+The running bring-up log for this machine, with every finding, what worked and what failed, is
+[docs/n1x-bringup-log.md](docs/n1x-bringup-log.md).
+
+
 - First inventory (BIOS Insyde G2621NMS.10B): 10× Cortex-X925 (MIDR `0x410fd851`, cpus 5-9,15-19) and
   10× Cortex-A725 (`0x410fd871`, cpus 0-4,10-14). There are 32 NVIDIA ACPI devices (`NVDA*`) of 19 types: 7 I2C,
   3 SPI, GPIO, HD Audio, 6 xHCI (Microsoft's inbox `USBXHCI` plus an NVIDIA lower filter, `nvxhcifilter`, which
