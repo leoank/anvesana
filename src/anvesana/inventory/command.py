@@ -23,7 +23,7 @@ from pathlib import Path
 
 from ..framework import store
 from ..framework.console import RULE, Table
-from . import hid, snapshot
+from . import display, hid, snapshot
 
 # Enumerators of software-only devices (volumes, software components, root-enumerated
 # virtual devices, hub/terminal-services stubs): no hardware to port.
@@ -228,6 +228,41 @@ def _show(args, root: Path) -> int:
             t.add(e["guid"], e.get("name") or "", e.get("type") or "", e["version"], e["lowest_supported"])
         print(t.text())
 
+    disp = doc.get("display") or {}
+    if disp.get("monitors"):
+        t = Table("Displays", ["device", "connector", "panel (EDID)", "current", "HDR", "brightness", "modes"])
+        for m in disp["monitors"]:
+            cur = m.get("current_mode") or {}
+            hdr = m.get("hdr") or {}
+            b = m.get("brightness") or {}
+            t.add(m["device"][:34], m.get("connector") or "", display.summary(m)[:70],
+                  f"{cur['width']}x{cur['height']}@{cur['refresh_hz']}" if cur else "",
+                  ("on" if hdr.get("enabled") else "supported" if hdr.get("supported") else "no") if hdr else "",
+                  f"{b['current']}% of {b['levels']} levels" if b else "", len(m.get("modes", [])))
+        print(t.text())
+    for bl in disp.get("backlights", []):
+        print(f"  backlight {bl['name']}: type {bl['type']}, {bl['current']}/{bl['max']}, driver {bl['driver']}")
+    if disp.get("color_profiles"):
+        print("  colour profiles (copied to display/color/): " + ", ".join(
+            p["file"] + (" [associated]" if p["associated"] else "") for p in disp["color_profiles"]))
+
+    power = doc.get("power") or {}
+    if power:
+        print("\nPower")
+        print(f"  sleep states: {', '.join(power.get('sleep_states', [])) or '-'}")
+        if power.get("unavailable_sleep_states"):
+            print(f"  not available: {', '.join(power['unavailable_sleep_states'])}")
+        for key in ("mem_sleep_current", "platform_profile", "plan", "overlay", "cpufreq_governors", "pcie_aspm"):
+            if power.get(key):
+                print(f"  {key.replace('_', ' ')}: {power[key]}")
+        shown = [s for s in power.get("settings", []) if s.get("subgroup") in ("Display", "Sleep", "Battery")]
+        for s in shown:
+            print(f"  {s['subgroup']}/{s['setting']}: AC {s.get('ac')}  DC {s.get('dc')}")
+
+    if doc.get("vendor_settings"):
+        print(f"\nVendor settings: {sum(len(v) for v in doc['vendor_settings'].values())} values from "
+              f"{len(doc['vendor_settings'])} registry keys (inventory.json: vendor_settings)")
+
     kernel = doc.get("kernel") or {}
     for key, title in (("deferred", "Deferred probes"), ("missing_firmware", "Missing firmware"),
                        ("probe_errors", "Probe errors"), ("acpi_errors", "ACPI errors")):
@@ -409,7 +444,11 @@ def _firmware_table(a: dict, b: dict, la: str, lb: str) -> Table:
                        ("kernel", lambda d: d.get("environment", {}).get("kernel")),
                        ("NVIDIA driver", lambda d: d.get("environment", {}).get("nvidia_driver")),
                        ("CPUs", lambda d: ", ".join(f"{c['count']}x {c.get('core')} @{c.get('max_mhz') or '?'} MHz"
-                                                     for c in (d.get("cpu") or {}).get("clusters", [])))):
+                                                     for c in (d.get("cpu") or {}).get("clusters", []))),
+                       ("panel", lambda d: "; ".join(display.summary(m) for m in (d.get("display") or {}).get("monitors", [])
+                                                     if m.get("edid"))),
+                       ("sleep", lambda d: ", ".join((d.get("power") or {}).get("sleep_states", [])) +
+                        (f" (mem_sleep {d['power']['mem_sleep_current']})" if (d.get("power") or {}).get("mem_sleep_current") else ""))):
         t.add(label, get(a) or "-", get(b) or "-")
     ta = {(h["signature"], h["oem_table_id"]): h for h in a.get("firmware", {}).get("acpi_tables", [])}
     tb = {(h["signature"], h["oem_table_id"]): h for h in b.get("firmware", {}).get("acpi_tables", [])}

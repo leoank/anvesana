@@ -29,6 +29,11 @@ inventory.json (schema version 1):
   kernel         Linux: release, cmdline, deferred probes, missing firmware, probe/ACPI errors
   firmware       {acpi_tables: [header + crc32 + file], smbios: summary,
                   wmi: [ACPI-WMI blocks from _WDG: guid, kind, object_id], esrt: [capsule-updatable firmware]}
+  display        {monitors: [{device, connector, edid_file, edid, current_mode, modes, hdr, brightness}],
+                  color_profiles (Windows, copied to display/color/), backlights (Linux)}
+  power          sleep states, plan / overlay and powercfg settings (Windows; full dump in power/),
+                 mem_sleep, platform_profile, governors (Linux)
+  vendor_settings  Windows: OEM control-software registry values (serials and keys removed)
   cpu            {cores: [{cpu, midr, core, registers, max_mhz, ...}], clusters, features}
   notes          what could not be collected and why
 

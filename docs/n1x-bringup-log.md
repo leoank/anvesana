@@ -136,7 +136,14 @@ MSI Center offered five User Scenario modes on this machine. Each was selected i
 - `Get_AP` byte 5 = `0x10` only in ECO-Silent: probably the silent fan / power-saving flag **[inferred]**.
 - The Windows power plan stayed "Balanced" throughout. MSI modes do not switch `powercfg` plans
   (overlay not checked by the probe).
-- Super Battery, Cooler Boost and Advanced fan were **not offered or not tried** in this run.
+- **Super Battery, Cooler Boost and fan options (Auto / Advanced) are not offered** by MSI Center S on
+  this model **[verified, confirmed by the user]**: the five modes above are the complete list. The UI
+  strings for them exist because the UI is shared with MSI's gaming laptops.
+- MSI modes **do** set the Windows power-mode overlay **[verified]**: ECO-Silent → "Best power
+  efficiency" (AC and DC), Performance → "Best performance" (seen at session start). Balanced / AI
+  Engine → not recorded yet.
+- `Get_WMI` = `01 03`: WMI interface version 3. `Get_EC` = `01 81` + ASCII `2621EMS1.109` `09302026`
+  `14:58:29`: EC firmware version and build date/time **[verified]**. `Get_EC2` returns zeros.
 
 Other getters (bytes not yet decoded beyond these readings):
 
@@ -149,7 +156,7 @@ Other getters (bytes not yet decoded beyond these readings):
 | `Get_Device` | `01 0a 05 00 00 08 20 …` | constant; likely feature flags |
 | `Get_Debug` | `01 00 00 00 22 …` | constant |
 | `Get_Thermal`, `Get_Data`, `Get_PE` | zeros (after the status byte) | – |
-| `Get_WMI`, `Get_EC`, `Get_EC2` | not read | probe bug: these take no input; fixed in the script, needs a re-run |
+| `Get_WMI`, `Get_EC`, `Get_EC2` | see above | read in the second run, after fixing the script |
 
 For Linux: the shift mode is readable through `MSI_ACPI.Get_AP` (method block `ABBC0F6E`, object
 `AM`). The matching setter `Set_AP` presumably writes it, but it was **not called**: no writes are
@@ -178,9 +185,27 @@ sensor), AI noise cancellation, LAN manager.
   Every lighting change is a burst opened by `SET_IDLE` (device resuming from selective suspend),
   then command/response pairs: `SET_REPORT` feature report **2** (64 bytes; setup `21 09 02 03 00 00 40 00`)
   followed by `GET_REPORT` feature report **1** (64 bytes; `a1 01 01 03 00 00 40 00`). 18 bursts,
-  132 pairs for the six lighting steps. **Payload bytes were not captured** (see §4).
-- Linux: no kernel driver; a userspace tool can drive it via hidraw (feature reports 2 → 1) once the
-  payload format is known.
+  132 pairs for the six lighting steps. Payload bytes are not in the ETW trace (see §4).
+- **Protocol, from MSI's own code** (`API_MysticLight.dll`, enum constants from .NET metadata and
+  IL of `Class_NB`, read statically; nothing was sent to the device) **[verified layout; meaning of
+  some arguments inferred from parameter names]**. Every command is `SET_REPORT` feature report 2
+  (64 bytes), then `GET_REPORT` feature report 1 (64 bytes, byte 0 = `01`) for the reply:
+
+  | Command | Bytes |
+  |---|---|
+  | Select keys / zones | `02 01` + 32-byte bitmap (bit *n* = key or zone *n*; "all" = 32 × `ff`) |
+  | Set style | `02 02 <style> <u16 LE arg×100> <arg> <arg> <arg×10> <arg> <arg>`, then from byte 10 four bytes per colour stop: `position R G B` |
+  | Save to MCU flash | `02 a0` (`SaveInFW`; **writes flash**) |
+  | Get keyboard layout | `01 a0`; answer in reply byte 2 (US / JP) |
+  | Other command IDs | `03` start all-sync, `04` set all-sync RGB, `b0` set brightness, `b1` get brightness, `ff` reset MCU |
+
+  Styles: `0` Off, `1` Steady, `2` Breath, `3` Color Cycle, `4` Wave. Brightness: 6 levels (0–100 % in 20 %
+  steps). Directions: Inward / Outward; Color Cycle: Rainbow / Random. A lighting change is
+  "select all → set style → save", which matches the bursts in the trace. The same code also drives a
+  second controller variant, `0db0:1604`.
+- Linux: no kernel driver; a small userspace tool can drive it via hidraw (`HIDIOCSFEATURE` report 2,
+  then `HIDIOCGFEATURE` report 1). Not yet tested on hardware: the first test needs your go-ahead,
+  since save-to-flash writes the MCU.
 
 ### Touchpad [verified]
 - Synaptics `06cb:d022` on `\_SB.I2C3.TPD3` (ACPI `SYNA1513`), I2C HID, haptic.
@@ -218,6 +243,32 @@ sensor), AI noise cancellation, LAN manager.
   ConvertibleSlateMode to 1/0"). Linux needs a `SW_TABLET_MODE` source: sensor hub hinge angle, or an
   EC/WMI event **[inferred]**.
 
+### Display [verified]
+- Panel: **Samsung Display `SDC 0x4222`, "ATNA60HC04-0"**, OLED, 16" (34 × 22 cm), connected over
+  **eDP**. EDID 1.4 (2024), 10 bits per colour, 384 bytes: base block + CTA-861 extension (colorimetry,
+  HDR static metadata: SDR + PQ/HDR10, max luminance ≈ 1600 cd/m²) + DisplayID 2.0 (native timing
+  3840 × 2400 @ 120 Hz, adaptive sync block). Range limits 30–120 Hz. Raw EDID saved as
+  `display/SDC4222.edid`.
+- Windows: currently 3840 × 2400 @ 60 Hz, 32 bpp; 144 modes, refresh rates 30 / 48 / 60 / 75 / 100 / 120 Hz.
+  HDR supported but off (8 bits per channel in SDR); SDR white level 80 nits.
+- Brightness: ACPI/WMI brightness with 101 levels (0–100), currently 65 %; adaptive brightness on.
+- MSI settings: refresh 60–120 Hz (`Max/MinDisplayFrequency`), `TrueColorMode=0`, OLED Care (pixel shift
+  after 3 min idle and dim after 5 min idle, both off; dark mode on).
+- Colour profiles: MSI **TrueColor** ICC profiles `TrueColor_SRGB_6500`, `TrueColor_Adobe_6500`,
+  `TrueColor_DisplayP3_6500`, `TrueColor_AntiBlue` (~10 KB each), all associated with the panel; copied
+  into each snapshot (`display/color/`). Whether they are per-unit calibrated is unknown.
+- Panel / TCON firmware: not exposed to the OS. The three ESRT "Device Firmware" entries are
+  capsule-updatable components but nothing maps them to a device (EC, touch, panel?) yet.
+
+### Power [verified]
+- Sleep: **Modern Standby only** ("S0 Low Power Idle, Network Connected") and Hibernate. S1/S2/S3 are not
+  available; S3 is also blocked by the Device Guard configuration. Linux will therefore have `s2idle`
+  only (no `deep`) **[inferred]**: suspend quality depends on every driver reaching its low-power
+  state, which makes the PEP (`NVDA6210`) and platform-controller interfaces important.
+- Plan "Balanced"; overlay follows the MSI mode (above). Timeouts: display off 60 min; sleep 3 h (AC) /
+  2 h (DC); hibernate 72 h; wake timers on AC only; battery low / reserve / critical at 6 / 4 / 2 %.
+  Full `powercfg /query` and `/availablesleepstates` output are saved in each snapshot (`power/`).
+
 ### Other input and sensors [verified]
 - `ACPI0011` HID button array at `\_SB.BTNS` (portable device control).
 - `MSFW1111` SPI HID sensor hub at `\_SB.SENH` ("HID Sensor Collection V2"), likely accelerometer / hinge
@@ -246,8 +297,10 @@ sensor), AI noise cancellation, LAN manager.
 | What | Why / status |
 |---|---|
 | `MSI_ACPI` WMI instances and methods | Access denied without admin; read with the elevated probe (§2) |
-| Probe: `Get_WMI`, `Get_EC`, `Get_EC2` | script set an input `Data` these methods don't have; fixed, needs a re-run |
-| Probe: USB payloads for Mystic Light | ETW `PartialDataBusTrace` logs only the setup packets of HID control transfers; the raw ETL has no report bytes. Script now uses `FullDataBusTrace`; if that also lacks payloads, the fallback is USBPcap (a capture driver install, so your call) |
+| Probe: `Get_WMI`, `Get_EC`, `Get_EC2` | first run: script set an input `Data` these methods don't have. Fixed; read in the second run |
+| Probe: USB payloads for Mystic Light | ETW USB providers (USBXHCI / UCX / USBHUB3) log only the URB header of HID control transfers, with **both** `PartialDataBusTrace` and `FullDataBusTrace`. The values next to the setup packets in the raw ETL are ETW bookkeeping, not report data. **Worked around** by reading the protocol from MSI's .NET code (§2). USBPcap was not tried: it needs a capture-driver install |
+| First privacy filter for vendor settings | let `OS_Product_Key` through (substring matching); replaced by an explicit list; Synaptics subkeys (hundreds of gesture macros) no longer recursed |
+| Probe's first run did not record the power-mode overlay | only the plan (always "Balanced"); the overlay is what MSI changes. Now in `bench inventory` (`power.overlay`) |
 | Probe: trace → XML step | `logman` names the file `usbtrace_000001.etl`, so the script's `tracerpt` pointed at a missing file; converted by hand, script fixed. `tracerpt` also needs `-lr` to keep all events |
 | `Get-WindowsDriver -Online` | needs admin; the driver-store walk covers what we need |
 | HID collections of `MSFW1111` sensor hub and camera sensor | not openable on Windows (sensor stack holds them); Linux raw descriptors will show them |
@@ -268,18 +321,19 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
 
 | Step | Status |
 |---|---|
-| 1. `MSI_ACPI` read-only getters | **done** for 10 of 13 getters; `Get_WMI` / `Get_EC` / `Get_EC2` need a re-run |
-| 2. Mode mapping (User Scenario) | **done** for 5 modes (§2); fan modes / Super Battery not covered |
-| 3. Mystic Light USB capture | **partial**: report IDs and sequence known; payloads need a re-run with `FullDataBusTrace` (or USBPcap) |
-
-Re-run only what's missing: `scripts\msi-admin-probe.ps1 -SkipModes` (getters + USB trace).
+| 1. `MSI_ACPI` read-only getters | **done**, all 13 |
+| 2. Mode mapping (User Scenario) | **done**: all 5 modes this model offers (no fan modes / Super Battery on this model) |
+| 3. Mystic Light protocol | **done** without a payload capture: report IDs and sequence from the USB trace, byte layout from MSI's code. Hardware test pending your go-ahead |
 
 ## 6. Open questions
 - Pen protocol: MPP 2.x or USI? (pen serial format, ELAN vendor reports)
 - What the `5B3CC38A-…` WMI event carries (hotkeys? tablet mode? AC?)
 - Which EC fields hold fan mode, Cooler Boost and the battery charge limit (shift mode is answered: `Get_AP` byte 3)
-- Does this model offer Super Battery, Cooler Boost or Advanced fan control at all?
-- Mystic Light payload layout for feature reports 2 / 1
+- Mystic Light: meaning of style-command bytes 3–9 per style (speed / direction / wave length), and
+  the 4-zone bit numbering; testable on hardware with your go-ahead
+- Which component each ESRT "Device Firmware" GUID updates
+- Whether the MSI TrueColor ICC profiles are calibrated per unit (compare with another N16 Flip)
+- MSI mode → overlay for Balanced and AI Engine
 - Whether `nvxhcifilter` hides an xHCI quirk Linux needs
 - Sensor hub contents (hinge angle for tablet mode?)
 
@@ -294,3 +348,9 @@ Re-run only what's missing: `scripts\msi-admin-probe.ps1 -SkipModes` (getters + 
   trace of 6 lighting changes. Mapped the EC shift mode (`Get_AP` byte 3) and the RGB controller's
   feature-report command/response pattern. Three getters and the USB payloads failed (script bugs /
   trace keyword); script fixed, re-run pending. Raw output kept outside the repo (session scratchpad).
+- **2026-10-30**: Second elevated run (`-SkipModes`): all 13 getters read (EC firmware string, WMI v3);
+  `FullDataBusTrace` also lacks HID control payloads. Decoded the Mystic Light protocol statically from
+  `API_MysticLight.dll` instead. User confirmed no Cooler Boost / Super Battery / fan options on this
+  model. Added `display`, `power` and `vendor_settings` to `bench inventory`: EDID parsing (CTA-861,
+  DisplayID), connector / modes / HDR via the CCD API, brightness levels, ICC profiles (copied),
+  sleep states, overlay, full powercfg settings; Linux side from DRM, backlight and `/sys/power`.

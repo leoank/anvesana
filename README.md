@@ -166,6 +166,9 @@ firmware the OS was handed:
 | HID | every top-level collection with its per-report fields (from `hid.dll` caps; sensor-stack collections are not readable) | raw `report_descriptor` per device (`hid/*.bin`) and the same parsed collections |
 | ACPI-WMI | `_WDG` blocks parsed from the tables: the GUIDs Linux's WMI bus binds drivers to | same, plus each WMI device's bound driver |
 | ESRT | capsule-updatable firmware (GUID, type, version) | `/sys/firmware/efi/esrt` (what fwupd uses) |
+| display | per monitor: EDID (saved + parsed: CTA-861 HDR, DisplayID timings, refresh range), connector, current and available modes, HDR state, brightness levels; ICC colour profiles copied | DRM connectors (status, EDID, modes, GPU driver), backlight devices |
+| power | sleep states (Modern Standby vs S3), plan, power-mode overlay, every `powercfg` setting (full dump saved) | `/sys/power` states and `mem_sleep`, platform profile, cpufreq governors, ASPM policy |
+| vendor settings | OEM control-software registry state (MSI Center S, Synaptics), serials and keys removed | – |
 | kernel | – | release, cmdline, `devices_deferred`, missing firmware, probe and ACPI errors, `kernel.log` |
 | ACPI | `acpi/*.dat`: every table except MSDM (license key), all SSDTs | `acpi/*.dat` from `/sys/firmware/acpi/tables` |
 | SMBIOS | `smbios.bin` (`dmidecode --from-dump`) and a summary without serials | same, or `/sys/class/dmi/id` without root |

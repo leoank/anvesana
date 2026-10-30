@@ -38,8 +38,56 @@ def collect(out_dir: Path, sysfs: Path = Path("/sys")) -> dict:
     deferred = _deferred(sysfs, notes)
     kernel = _kernel(out_dir, notes)
     return {"devices": devices(sysfs, deferred), "drivers": _modules(sysfs), "kernel": {**kernel, "deferred": deferred},
-            "hid": _hid(sysfs, out_dir), "firmware": _firmware(sysfs, out_dir, notes), "cpu": _cpu(sysfs),
-            "notes": notes}
+            "hid": _hid(sysfs, out_dir), "firmware": _firmware(sysfs, out_dir, notes),
+            "display": _display(sysfs, out_dir), "power": _power(sysfs), "cpu": _cpu(sysfs), "notes": notes}
+
+
+# ------------------------------------------------------------------ display / power
+
+def _display(sysfs: Path, out_dir: Path) -> dict:
+    """DRM connectors (status, EDID, modes) and backlight devices."""
+    from . import display
+
+    monitors = []
+    for con in sorted((sysfs / "class/drm").glob("card*-*")):
+        status = _read(con / "status")
+        mon = {"device": f"drm/{con.name}", "connector": con.name.split("-", 1)[1], "status": status,
+               "enabled": _read(con / "enabled"), "modes": list(dict.fromkeys((_read(con / "modes") or "").split()))}
+        drv = _driver_of(con.parent / "device") if (con.parent / "device").exists() else None
+        mon["gpu_driver"] = drv["name"] if drv else None
+        try:
+            edid = (con / "edid").read_bytes()
+        except OSError:
+            edid = b""
+        if edid:
+            (out_dir / "display").mkdir(parents=True, exist_ok=True)
+            fname = f"display/{con.name}.edid"
+            (out_dir / fname).write_bytes(edid)
+            mon.update(edid_file=fname, edid=display.parse_edid(edid))
+        if status == "connected" or edid:
+            monitors.append(mon)
+    backlights = []
+    for bl in sorted((sysfs / "class/backlight").glob("*")):
+        drv = _driver_of(bl / "device") if (bl / "device").exists() else None
+        backlights.append({"name": bl.name, "type": _read(bl / "type"), "max": _read(bl / "max_brightness"),
+                           "current": _read(bl / "actual_brightness") or _read(bl / "brightness"),
+                           "driver": drv["name"] if drv else None})
+    return {"monitors": monitors, "backlights": backlights, "color_profiles": []}
+
+
+def _power(sysfs: Path) -> dict:
+    """Sleep states (mem_sleep: s2idle vs deep), platform profile, cpufreq governors, ASPM policy."""
+    mem_sleep = (_read(sysfs / "power/mem_sleep") or "").split()
+    governors = sorted({g for p in (sysfs / "devices/system/cpu/cpufreq").glob("policy*")
+                        if (g := _read(p / "scaling_governor"))})
+    return {"sleep_states": (_read(sysfs / "power/state") or "").split(),
+            "mem_sleep": [m.strip("[]") for m in mem_sleep],
+            "mem_sleep_current": next((m.strip("[]") for m in mem_sleep if m.startswith("[")), None),
+            "hibernate": _read(sysfs / "power/disk"),
+            "platform_profile": _read(sysfs / "firmware/acpi/platform_profile"),
+            "platform_profile_choices": (_read(sysfs / "firmware/acpi/platform_profile_choices") or "").split(),
+            "cpufreq_governors": governors,
+            "pcie_aspm": _read(sysfs / "module/pcie_aspm/parameters/policy")}
 
 
 # ------------------------------------------------------------------ devices

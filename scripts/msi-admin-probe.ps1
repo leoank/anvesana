@@ -8,8 +8,10 @@
          MSI Center's own registry view of the current mode.
       2. Mode mapping: switch User Scenario / fan mode in MSI Center when prompted; each switch gets its
          own dump, so the bytes that change identify the EC fields behind each mode.
-      3. Mystic Light: a USB ETW trace (USBXHCI / UCX / USBHUB3, PartialDataBusTrace) while you change
-         the keyboard lighting in MSI Center; converted to XML for decoding the reports to 1462:1609.
+      3. Mystic Light: a USB ETW trace (USBXHCI / UCX / USBHUB3) while you change the keyboard lighting
+         in MSI Center; converted to XML. It shows which reports go to 1462:1609 and in what order, but
+         Windows' USB ETW providers do not log HID control-transfer payloads (see
+         docs/n1x-bringup-log.md for the protocol, read from MSI's code instead).
 
     Nothing is written to the EC or WMI: only Get_* methods are called. Output goes to -OutDir.
 .EXAMPLE

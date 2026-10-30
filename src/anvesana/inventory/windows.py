@@ -76,7 +76,9 @@ $drivers = foreach ($d in Get-CimInstance Win32_SystemDriver) {
        version = $(if ($v) { $v.FileVersion }); company = $(if ($v) { $v.CompanyName })
        description = $(if ($v) { $v.FileDescription }) }
 }
-@{ devices = @($devices); drivers = @($drivers) } | ConvertTo-Json -Depth 6 -Compress
+$brightness = @(Get-CimInstance -Namespace root/wmi WmiMonitorBrightness | ForEach-Object {
+    @{ instance = $_.InstanceName; current = [int]$_.CurrentBrightness; levels = @($_.Level | ForEach-Object { [int]$_ }) } })
+@{ devices = @($devices); drivers = @($drivers); brightness = $brightness } | ConvertTo-Json -Depth 6 -Compress
 """
 
 HASH_LIMIT = 96 << 20
@@ -130,7 +132,8 @@ def collect(out_dir: Path, firmware_dir: Path | None = None) -> dict:
     return {"devices": devices, "drivers": drivers,
             "packages": _driver_packages(devices, drivers, out_dir, firmware_dir), "hid": _hid_devices(devices),
             "firmware": {"acpi_tables": acpi, "smbios": smbios, "wmi": wmi, "esrt": _esrt(devices)},
-            "cpu": _cpu(), "notes": notes}
+            "display": _display(devices, raw.get("brightness") or [], out_dir, notes), "power": _power(out_dir),
+            "vendor_settings": _vendor_settings(), "cpu": _cpu(), "notes": notes}
 
 
 def _hid_devices(devices: list[dict]) -> list[dict]:
@@ -496,6 +499,238 @@ def _caps(fn, rtype: int, count: int, pp, button: bool) -> list[dict]:
             bits, rcount = struct.unpack_from("<HH", c, 18)
             field.update(bits=bits, count=rcount)
         out.append(field)
+    return out
+
+
+# ------------------------------------------------------------------ display
+
+_OUTPUT_TECH = {0: "VGA", 4: "DVI", 5: "HDMI", 6: "LVDS", 10: "DisplayPort", 11: "eDP (embedded DisplayPort)",
+                13: "UDI embedded", 15: "Miracast", 18: "DisplayPort over USB-C", 0x80000000: "internal"}
+_COLOR_DIR = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "spool" / "drivers" / "color"
+
+
+def _display(devices: list[dict], brightness: list[dict], out_dir: Path, notes: list[str]) -> dict:
+    """Monitors (EDID, connector, current and available modes, HDR state, brightness levels)
+    and the colour profiles associated with them."""
+    from . import display
+
+    monitors = []
+    paths = _display_paths()
+    for d in devices:
+        if d["bus"] != "display":
+            continue
+        model, inst = d["id"].split("\\")[1:3]
+        mon = {"device": d["id"], "name": d.get("name")}
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                 rf"SYSTEM\CurrentControlSet\Enum\DISPLAY\{model}\{inst}\Device Parameters")
+            edid = winreg.QueryValueEx(key, "EDID")[0]
+            (out_dir / "display").mkdir(parents=True, exist_ok=True)
+            fname = f"display/{model}.edid"
+            (out_dir / fname).write_bytes(edid)
+            mon.update(edid_file=fname, edid=display.parse_edid(edid))
+        except OSError:
+            notes.append(f"no EDID in the registry for {d['id']}")
+        path = next((p for p in paths if inst.upper() in p.get("device_path", "").upper()), None)
+        if path:
+            mon.update({k: v for k, v in path.items() if k != "device_path"})
+        b = next((b for b in brightness if b["instance"].upper().startswith(d["id"].upper())), None)
+        if b:
+            mon["brightness"] = {"current": b["current"], "levels": len(b["levels"]),
+                                 "min": min(b["levels"], default=None), "max": max(b["levels"], default=None)}
+        monitors.append(mon)
+
+    profiles, associated = [], _icm_associations()
+    for p in sorted(_COLOR_DIR.glob("*")) if _COLOR_DIR.exists() else []:
+        if p.suffix.lower() not in (".icc", ".icm"):
+            continue
+        dest = out_dir / "display" / "color" / p.name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(p, dest)
+        profiles.append({"file": p.name, "size": p.stat().st_size, "sha256": _sha256(p),
+                         "associated": p.name.lower() in associated, "copied_to": dest.relative_to(out_dir).as_posix()})
+    return {"monitors": monitors, "color_profiles": profiles}
+
+
+def _icm_associations() -> set[str]:
+    r"""Profile file names associated with any display (HKCU / HKLM ...\ICM\ProfileAssociations)."""
+    names = set()
+    for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+        try:
+            root = winreg.OpenKey(hive, r"Software\Microsoft\Windows NT\CurrentVersion\ICM\ProfileAssociations")
+        except OSError:
+            continue
+        stack = [root]
+        while stack:
+            key = stack.pop()
+            for i in range(winreg.QueryInfoKey(key)[1]):
+                value = winreg.EnumValue(key, i)[1]
+                for v in value if isinstance(value, list) else [value]:
+                    if isinstance(v, str):
+                        names.update(n.strip().lower() for n in v.split() if n.lower().endswith((".icc", ".icm")))
+            stack += [winreg.OpenKey(key, s) for s in _subkeys(key)]
+    return names
+
+
+def _display_paths() -> list[dict]:
+    """Active display paths from the CCD API: connector type, refresh, HDR (advanced colour)
+    state and SDR white level, plus the GDI mode list of each source."""
+    user32 = ctypes.WinDLL("user32")
+    np_, nm = ctypes.c_uint32(), ctypes.c_uint32()
+    if user32.GetDisplayConfigBufferSizes(2, ctypes.byref(np_), ctypes.byref(nm)):  # QDC_ONLY_ACTIVE_PATHS
+        return []
+    paths, modes = (ctypes.c_ubyte * (72 * np_.value))(), (ctypes.c_ubyte * (64 * nm.value))()
+    if user32.QueryDisplayConfig(2, ctypes.byref(np_), paths, ctypes.byref(nm), modes, None):
+        return []
+    raw, out = bytes(paths), []
+    for k in range(np_.value):
+        p = raw[72 * k:72 * (k + 1)]
+        src_luid, src_id = p[0:8], struct.unpack_from("<I", p, 8)[0]
+        luid, target_id = p[20:28], struct.unpack_from("<I", p, 28)[0]
+        num, den = struct.unpack_from("<II", p, 48)
+
+        def info(kind: int, size: int, target=True) -> bytes | None:
+            buf = (ctypes.c_ubyte * size)()
+            struct.pack_into("<II8sI", buf, 0, kind, size, luid if target else src_luid, target_id if target else src_id)
+            return bytes(buf) if user32.DisplayConfigGetDeviceInfo(buf) == 0 else None
+
+        entry = {"refresh_hz": round(num / den, 2) if den else None}
+        name = info(2, 420)  # DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME
+        if name:
+            tech = struct.unpack_from("<I", name, 24)[0]
+            entry["connector"] = _OUTPUT_TECH.get(tech, f"type {tech}")
+            entry["device_path"] = name[164:420].decode("utf-16-le").split("\0")[0]
+        color = info(9, 32)  # GET_ADVANCED_COLOR_INFO
+        if color:
+            bits, encoding, bpc = struct.unpack_from("<III", color, 20)
+            entry["hdr"] = {"supported": bool(bits & 1), "enabled": bool(bits & 2), "bits_per_channel": bpc}
+        white = info(11, 24)  # GET_SDR_WHITE_LEVEL (1000 = 80 nits)
+        if white:
+            entry["sdr_white_nits"] = round(struct.unpack_from("<I", white, 20)[0] * 80 / 1000)
+        src = info(1, 84, target=False)  # GET_SOURCE_NAME -> \\.\DISPLAYn for the GDI mode list
+        if src:
+            entry.update(_gdi_modes(src[20:84].decode("utf-16-le").split("\0")[0]))
+        out.append(entry)
+    return out
+
+
+def _gdi_modes(device: str) -> dict:
+    user32 = ctypes.WinDLL("user32")
+    user32.EnumDisplaySettingsExW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32]
+    dm = (ctypes.c_ubyte * 220)()
+
+    def read():
+        return struct.unpack_from("<I", dm, 172)[0], struct.unpack_from("<I", dm, 176)[0], \
+            struct.unpack_from("<I", dm, 184)[0], struct.unpack_from("<I", dm, 168)[0]
+
+    struct.pack_into("<H", dm, 68, 220)
+    current = None
+    if user32.EnumDisplaySettingsExW(device, 0xFFFFFFFF, dm, 0):  # ENUM_CURRENT_SETTINGS
+        w, h, hz, bpp = read()
+        current = {"width": w, "height": h, "refresh_hz": hz, "bits_per_pixel": bpp}
+    modes, i = set(), 0
+    while user32.EnumDisplaySettingsExW(device, i, dm, 0):
+        w, h, hz, _ = read()
+        modes.add((w, h, hz))
+        i += 1
+    return {"current_mode": current, "modes": [f"{w}x{h}@{hz}" for w, h, hz in sorted(modes, reverse=True)]}
+
+
+# ------------------------------------------------------------------ power
+
+def _power(out_dir: Path) -> dict:
+    """Sleep states, active plan and overlays, and every setting of the active plan (powercfg)."""
+    def run(*args) -> str:
+        try:
+            return subprocess.run(["powercfg", *args], capture_output=True, text=True, timeout=60,
+                                  errors="replace").stdout
+        except (OSError, subprocess.SubprocessError):
+            return ""
+
+    states = run("/availablesleepstates")
+    available, _, unavailable = states.partition("not available")
+    query = run("/query")
+    (out_dir / "power").mkdir(parents=True, exist_ok=True)
+    (out_dir / "power" / "powercfg_query.txt").write_text(query, encoding="utf-8")
+    (out_dir / "power" / "sleep_states.txt").write_text(states, encoding="utf-8")
+
+    from ..framework.environment import _OVERLAYS
+    overlays = {}
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes")
+        for name in ("ActiveOverlayAcPowerScheme", "ActiveOverlayDcPowerScheme"):
+            try:
+                guid = winreg.QueryValueEx(key, name)[0].lower()
+                overlays[name[13:15].lower()] = _OVERLAYS.get(guid, guid)
+            except OSError:
+                pass
+    except OSError:
+        pass
+    return {"sleep_states": [line.strip() for line in available.splitlines()[1:] if line.strip()
+                             and line.startswith("    ") and not line.startswith("\t")],
+            "unavailable_sleep_states": [line.strip() for line in unavailable.splitlines()
+                                         if line.startswith("    ") and line.strip()],
+            "plan": next((line.split(":", 1)[1].strip() for line in run("/getactivescheme").splitlines()
+                          if ":" in line), None),
+            "overlay": overlays, "settings": _parse_powercfg(query), "files": ["power/powercfg_query.txt",
+                                                                               "power/sleep_states.txt"]}
+
+
+def _parse_powercfg(text: str) -> list[dict]:
+    """powercfg /query -> [{subgroup, setting, guid, ac, dc}] (indices as integers)."""
+    out, subgroup, current = [], None, None
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("Subgroup GUID:"):
+            subgroup = s.split("(", 1)[1].rstrip(")") if "(" in s else s.split(":", 1)[1].strip()
+        elif s.startswith("Power Setting GUID:"):
+            guid, _, name = s.split(":", 1)[1].strip().partition("  ")
+            current = {"subgroup": subgroup, "setting": name.strip("() "), "guid": guid}
+            out.append(current)
+        elif current and s.startswith(("Current AC Power Setting Index:", "Current DC Power Setting Index:")):
+            current["ac" if " AC " in s else "dc"] = int(s.split(":", 1)[1].strip(), 16)
+    return out
+
+
+# ------------------------------------------------------------------ vendor settings
+
+# Registry trees where OEM control software keeps per-machine state (modes, OLED care,
+# colour mode, feature support flags). Values that identify the unit or user are dropped.
+# (path, recurse). Synaptics' subkeys are hundreds of per-zone gesture macros: top level only.
+_VENDOR_KEYS = [(r"SOFTWARE\WOW6432Node\MSI\MSI Center S", True), (r"SOFTWARE\WOW6432Node\MSI\NB", True),
+                (r"SOFTWARE\Synaptics\SynTPEnh", False), (r"SOFTWARE\Synaptics\SynTP\Install", False)]
+_PRIVATE_NAMES = {"productsn", "barcode", "identifyingnumber", "osproductkey", "certificatekeyname",
+                  "certificateblobvalue"}
+_PRIVATE_PARTS = ("serial", "username")
+
+
+def _private(name: str) -> bool:
+    n = name.lower().replace("_", "")
+    return n in _PRIVATE_NAMES or any(p in n for p in _PRIVATE_PARTS)
+
+
+def _vendor_settings() -> dict:
+    out = {}
+    for path, recurse in _VENDOR_KEYS:
+        try:
+            root = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
+        except OSError:
+            continue
+        stack = [(path, root)]
+        while stack:
+            name, key = stack.pop()
+            values = {}
+            for i in range(winreg.QueryInfoKey(key)[1]):
+                vname, value, _ = winreg.EnumValue(key, i)
+                if _private(vname) or vname.endswith("FileVersion"):
+                    continue
+                if isinstance(value, bytes) or (isinstance(value, str) and len(value) > 300):
+                    continue
+                values[vname] = value
+            if values:
+                out[name] = values
+            if recurse:
+                stack += [(f"{name}\\{s}", winreg.OpenKey(key, s)) for s in _subkeys(key)]
     return out
 
 
