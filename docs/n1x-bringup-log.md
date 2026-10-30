@@ -248,8 +248,8 @@ sensor), AI noise cancellation, LAN manager.
   WMI method is open.
 - Linux: no kernel driver; a small userspace tool can drive it via hidraw (`HIDIOCSFEATURE` report 2,
   then `HIDIOCGFEATURE` report 1) with the byte layout above.
-- Test script: `C:\Users\ANKKUM~1\AppData\Local\Temp\claude\...\scratchpad\mystic_test.py` (session
-  scratchpad, not in the repo).
+- Tool: **`scripts/msi-mystic-light.py`** (Windows, no admin): `steady`, `zones`, `breath`, `cycle`, `wave`,
+  `off`, `demo`. It refuses to send save-to-flash.
 
 ### Touchpad [verified]
 - Synaptics `06cb:d022` on `\_SB.I2C3.TPD3` (ACPI `SYNA1513`), I2C HID, haptic.
@@ -403,5 +403,4 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
   steady red / green / blue / white worked. So on/off is separate from the RGB controller.
 - **2026-10-30**: Tested zones and effects (no flash save): 4 zones confirmed left to right; Breath and
   Color Cycle worked; Wave (horizontal, circular) appeared to work but was hard to judge. Style header
-  bytes 2–9 now fully mapped. Test scripts `mystic_test.py` / `mystic_effects.py` are in the session
-  scratchpad, not the repo.
+  bytes 2–9 now fully mapped. The test scripts were consolidated into `scripts/msi-mystic-light.py`.
