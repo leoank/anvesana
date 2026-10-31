@@ -8,7 +8,8 @@ target:
   kind: range               # branch | range | page | run | experiment | phase
   ref: HEAD..HEAD
 base: 62d79e8451969b747e686f65306a2c6e8cc4c45b
-head: 62d79e8451969b747e686f65306a2c6e8cc4c45b
+head: 3c9870eccad4af954299cca00a624709f23426ee
+rounds: [62d79e8451969b747e686f65306a2c6e8cc4c45b]
 paths: []
 about: [PRJ-0001]
 status: open              # open | changes_requested | approved | merged | closed
@@ -23,6 +24,7 @@ Documents the work so far on [[PRJ-0001]]:
 - `notes/README.md`: introduction, *Progress* (done and planned phases), open questions, design, lessons.
 - Also in the tree, from `yajna init` on 2026-10-31: `yajna.toml`, `notes/` scaffold, `.claude/skills/yajna/SKILL.md`, `.gitattributes`.
 
-Nothing is committed yet; `yajna review update` once it is. Decisions for the author to check: the eleven ADRs are recorded as `accepted` (made during the work on 2026-10-30/31; ADR-0005 and ADR-0009 follow the author's explicit choices); phases 3–6 are a proposed plan.
+Committed on branch `docs/yajna-architecture` as `bc2b91c` (yajna init, `.gitattributes`,
+`.gitignore`) and `3c9870e` (architecture, ADRs, project page, session, log). Decisions for the author to check: the eleven ADRs are recorded as `accepted` (made during the work on 2026-10-30/31; ADR-0005 and ADR-0009 follow the author's explicit choices); phases 3–6 are a proposed plan.
 
 ## Threads
