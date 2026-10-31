@@ -15,7 +15,8 @@ and never renumbered. A decision that changes an earlier one supersedes it; both
 | [0008](ADR-0008-probe-vendor-firmware-read-only-from-a-separate-script.md) | Probe vendor firmware interfaces read-only, from a separate elevated script | accepted |
 | [0009](ADR-0009-mystic-light-protocol-from-vendor-code-never-write-flash.md) | Take the keyboard RGB protocol from the vendor's code; never write the controller's flash | accepted |
 | [0010](ADR-0010-record-bios-and-system-in-every-run.md) | Record BIOS and system identity in every run's environment | accepted |
-| [0011](ADR-0011-keep-notebook-files-lf.md) | Keep the notebook's files LF in git and in checkouts | accepted |
+| [0011](ADR-0011-keep-notebook-files-lf.md) | Keep the notebook's files LF in git and in checkouts | superseded by 0012 |
+| [0012](ADR-0012-keep-gitattributes-lf-drop-manual-conversion.md) | Keep the notebook LF through `.gitattributes` alone; stop converting pages by hand (yajna ≥ 0.19.0) | accepted |
 
 Decisions that predate this notebook (one process per benchmark, per-benchmark `VERSION`,
 committed baselines, per-node extras from one `uv.lock`) are described in the top-level

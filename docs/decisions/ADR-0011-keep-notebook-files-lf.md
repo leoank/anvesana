@@ -1,6 +1,6 @@
 # ADR-0011: Keep the notebook's files LF in git and in checkouts
 
-Status: accepted
+Status: superseded by ADR-0012
 Date: 2026-10-31
 
 ## Context

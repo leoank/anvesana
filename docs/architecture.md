@@ -111,7 +111,8 @@ flowchart LR
   protocol taken from MSI's code. It refuses save-to-flash (ADR-0009).
 
 **Notebook.** `notes/` is a yajna `project` notebook (`yajna.toml`): the project page,
-agent sessions and the daily log. Its files are kept LF (ADR-0011).
+agent sessions and the daily log. Its files are kept LF by `.gitattributes`; yajna ≥ 0.19.0
+writes LF on Windows (ADR-0012).
 
 ## Stack
 

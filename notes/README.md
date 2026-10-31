@@ -67,7 +67,7 @@ in `docs/n1x-bringup-log.md`.
 - `NvWmiBrightness` is registered by NVIDIA's Windows driver, not the ACPI tables, so Linux's `nvidia-wmi-ec-backlight` does not apply.
 - RGB commands are accepted while the backlight is off but show nothing; check Fn + F8 before concluding a lighting test failed.
 - A substring privacy filter leaked `OS_Product_Key`; match exact names (ADR-0004).
-- yajna 0.18.1's Windows build writes CRLF pages that its validator rejects; convert new pages to LF (ADR-0011).
+- yajna 0.18.1's Windows build wrote CRLF pages that its validator rejected; 0.19.0 (native ARM64) writes LF, so the manual conversion is gone and only `.gitattributes` remains (ADR-0011, superseded by ADR-0012).
 
 ## Experiments
 One line per experiment after its link, what it asks and what came of it; `yajna validate`
