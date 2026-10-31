@@ -1,0 +1,7 @@
+# yajna notebook files must have LF line endings: the yajna parser rejects CRLF frontmatter,
+# and this machine's Git (core.autocrlf=true) would otherwise check them out as CRLF.
+yajna.toml              text eol=lf
+notes/**                text eol=lf
+docs/decisions/**       text eol=lf
+docs/architecture.md    text eol=lf
+.claude/skills/**       text eol=lf

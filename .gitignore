@@ -5,3 +5,7 @@ __pycache__/
 # only curated baselines/ are committed.
 results/
 scratch/
+
+# yajna's per-machine state (notebook registry). yajna 0.18.1 on Windows writes it into the
+# repo instead of ~/.local/state; it holds local absolute paths.
+.local/
