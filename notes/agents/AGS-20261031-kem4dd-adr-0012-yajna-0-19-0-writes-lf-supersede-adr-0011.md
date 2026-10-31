@@ -6,10 +6,10 @@ title: "ADR-0012: yajna 0.19.0 writes LF; supersede ADR-0011"
 model: claude-opus-5-5
 harness: claude-code
 started: 2026-10-31T17:42+00:00
-finished: null
+finished: 2026-10-31T17:43+00:00
 created_entities: []
 edited_entities: [PRJ-0001, REV-20261031-gfr9da]
-outcome: pending          # done | failed | aborted | pending
+outcome: done             # done | failed | aborted | pending
 created: 2026-10-31
 author: agent:claude
 ---
@@ -31,3 +31,4 @@ the open review [[REV-20261031-gfr9da]].
   [[PRJ-0001]] updated.
 - Decided without asking: keep the `.local/` line in `.gitignore` for anyone still on
   0.18.x; did not test whether 0.19.0 accepts CRLF pages it did not write.
+- Committed as `2952c48`; `yajna review update` moved the review's head 3c9870e -> 2952c48 (round 3) and its summary names the commit.
