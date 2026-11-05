@@ -5,3 +5,8 @@ notes/**                text eol=lf
 docs/decisions/**       text eol=lf
 docs/architecture.md    text eol=lf
 .claude/skills/**       text eol=lf
+
+# Nix and shell files are read on Linux (WSL, the live image), where CRLF breaks them.
+flake.nix               text eol=lf
+nix/**                  text eol=lf
+scripts/*.sh            text eol=lf

@@ -404,3 +404,11 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
 - **2026-10-30**: Tested zones and effects (no flash save): 4 zones confirmed left to right; Breath and
   Color Cycle worked; Wave (horizontal, circular) appeared to work but was hard to judge. Style header
   bytes 2–9 now fully mapped. The test scripts were consolidated into `scripts/msi-mystic-light.py`.
+- **2026-11-04**: Started replicating the MindStudio "Linux at a third of Windows speed" report
+  (`docs/rtx-spark-replication.md`). Read from the 2026-10-30 tables: five devices return `_STA` 0
+  under `_OSI("Windows 2022")` and are hidden from Windows (and probably Linux): SVP0 NVDA3000, SSPM
+  NVDA8400, HFRP MTK00055 (DSDT), NH1X NVDA300A, NMAP NVDA300B (SSDT). Device Manager confirms
+  only NPCF (NVDA0820) is present. The `_STA` bytes match the ASUS ProArt P16's SSPM byte for byte, so
+  `scripts/acpi-hidden-devices.py --expose SSPM` applies its 20-byte override unchanged
+  [verified: offline, checksum valid; not booted]. llama.cpp b12119 (Windows ARM64 CUDA 13.4) sees
+  the GPU with 113,136 MiB through CUDA while 96 GB is reserved and Windows sees 30.5 GiB of RAM.

@@ -52,6 +52,7 @@ SUITE = {
     "tensorrt": Requirement("tensorrt_gemm", extras=("nvidia", "tensorrt"), hardware="nvidia-gpu"),
     "cutlass": Requirement("cutlass_gemm", extras=("nvidia", "cutlass"), tools=("c++",), os=("linux",),
                            hardware="nvidia-gpu"),
+    "llm": Requirement("llm", extras=("nvidia",), hardware="nvidia-nvml"),
     "disk": Requirement("disk"),
 }
 
@@ -68,8 +69,15 @@ def _probe_nvidia_gpu() -> str | None:
     return None if int(err) == 0 and count > 0 else "no NVIDIA GPU found"
 
 
+def _probe_nvidia_nvml() -> str | None:
+    """For benchmarks that drive an external CUDA program and only sample the GPU."""
+    from ..hw.telemetry import Gpu
+
+    return None if Gpu.count() > 0 else "no NVIDIA GPU visible to NVML (driver or extra 'nvidia' missing)"
+
+
 # Probe name -> function returning None if the device is usable, else the reason.
-HARDWARE_PROBES = {"nvidia-gpu": _probe_nvidia_gpu}
+HARDWARE_PROBES = {"nvidia-gpu": _probe_nvidia_gpu, "nvidia-nvml": _probe_nvidia_nvml}
 
 
 def load(name: str) -> ModuleType:

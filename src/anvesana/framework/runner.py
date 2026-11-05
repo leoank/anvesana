@@ -24,7 +24,7 @@ from . import environment, machine as machines, registry, store
 from .console import RULE
 from .records import SCHEMA_VERSION, RunRecord, is_headline, summarize_telemetry
 
-HEADLINE_UNITS = {"TFLOPS", "GB/s", "MB/s", "IOPS", "GFLOPS", "MOps/s", "ms"}
+HEADLINE_UNITS = {"TFLOPS", "GB/s", "MB/s", "IOPS", "GFLOPS", "MOps/s", "ms", "tok/s"}
 
 
 def add_arguments(p):
@@ -34,6 +34,9 @@ def add_arguments(p):
     p.add_argument("--only", help="comma-separated benchmark ids to run")
     p.add_argument("--skip", help="comma-separated benchmark ids to skip")
     p.add_argument("--tag", help="label for this run, e.g. 'best-perf' (part of the run id)")
+    p.add_argument("--set", action="append", default=[], metavar="ID.KEY=VALUE",
+                   help="override one benchmark arg from the profile for this run, e.g. llm.models=gpt-oss-20b "
+                        "(repeatable; recorded in run.json)")
     p.add_argument("--store", help="results store (default: $ANVESANA_RESULTS_DIR or ~/anvesana-results)")
     p.add_argument("--health", action="store_true",
                    help="health-check the finished run against the baseline; exit 1 on failure")
@@ -61,6 +64,17 @@ def _select(profile, args) -> list:
     if args.skip:
         unwanted = {s.strip() for s in args.skip.split(",")}
         specs = [s for s in specs if s.id not in unwanted]
+    for item in args.set:
+        target, sep, value = item.partition("=")
+        bench, dot, key = target.partition(".")
+        if not sep or not dot:
+            raise SystemExit(f"--set {item}: expected ID.KEY=VALUE")
+        matching = [s for s in specs if s.id == bench]
+        if not matching:
+            raise SystemExit(f"--set {item}: benchmark '{bench}' is not selected")
+        for s in matching:
+            # Copy so the profile object is untouched; the run records the args it ran with.
+            s.args = {**s.args, key: value}
     return specs
 
 

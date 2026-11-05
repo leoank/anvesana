@@ -37,6 +37,10 @@ id = "cutlass"           # CUTLASS SM120 kernels don't compile with MSVC (C2719)
 os = ["linux"]
 
 [[benchmarks]]
+id = "llm"               # needs scripts/llm-fetch.py first; docs/rtx-spark-replication.md
+args = { models = "gpt-oss-20b,gpt-oss-120b" }
+
+[[benchmarks]]
 id = "disk"
 
 # NVIDIA quotes the N1X as "1 PFLOP of FP4 AI compute", which is NVFP4 with 2:4

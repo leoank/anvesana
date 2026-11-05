@@ -41,6 +41,12 @@ in `docs/n1x-bringup-log.md`.
 - [ ] Benchmarks on Linux, including TensorRT (full) and CUTLASS; Linux baseline (phase 5)
 - [ ] Power modes, keyboard RGB and backlight from Linux (phase 6)
 - [ ] Linux userspace tool for the RGB controller over hidraw
+- [x] Replication setup for the "RTX Spark is 3x slower on Linux" report: `bench llm` (pinned llama.cpp b12119, GPT-OSS 20B/120B), power-condition sweeps, NixOS live image, ACPI hidden-device tool, journaled Windows state changes (ADR-0013 to 0016; docs/rtx-spark-replication.md)
+- [ ] Windows baseline with NVPCF on and off, AC and battery ([[EXP-20261104-ssfqvw]])
+- [ ] WSL2 llama.cpp and vLLM 8-client runs; WSL as the Nix build host ([[EXP-20261104-ssfs86]])
+- [ ] First build of the NixOS live image (fill the open-modules hash; check the boot menu)
+- [ ] Native NixOS runs, stock ACPI ([[EXP-20261104-ssfv1c]]), then with SSPM exposed ([[EXP-20261104-ssfy1p]])
+- [ ] NPCF and hidden-device disassembly ([[EXP-20261104-ssfn9a]])
 
 ## Open questions
 - Does the Linux collector work on real sysfs? It has only been tested on a synthetic tree.
@@ -51,6 +57,9 @@ in `docs/n1x-bringup-log.md`.
 - Which component does each ESRT "Device Firmware" GUID update?
 - Does Fn + F8 (keyboard backlight) work on Linux through the EC alone?
 - Where does the RGB controller report brightness (`02 b1` returned only its echo)?
+- Does Linux answer `_OSI("Windows 2022")` true, hiding SVP0, SSPM, HFRP, NH1X and NMAP? Is SSPM (NVDA8400) the non-Windows counterpart of NVPCF?
+- Does the BitLocker volume carry a TPM protector next to its pre-boot password? Secure Boot can change only after a recovery key is stored (ADR-0016).
+- Is the GPU memory reservation (96 GB) a firmware carve-out that Linux cannot reclaim? CUDA on Windows sees 110.5 GiB; the ProArt saw 116 GiB on Linux.
 
 ## Design
 - One process per benchmark and a methodology `VERSION` per benchmark; health refuses to compare across versions.
@@ -72,3 +81,8 @@ in `docs/n1x-bringup-log.md`.
 ## Experiments
 One line per experiment after its link, what it asks and what came of it; `yajna validate`
 rejects a bare link here. Newest last.
+- [[EXP-20261104-ssfn9a]] Is NVPCF's power data really opaque, and which ACPI devices does the firmware hide from Linux? Five such devices found in the tables (SVP0, SSPM, HFRP, NH1X, NMAP).
+- [[EXP-20261104-ssfqvw]] Windows baseline: GPT-OSS decode speed and GPU clock on AC and battery, with NVPCF on and off
+- [[EXP-20261104-ssfs86]] Does WSL2 match native Windows for llama.cpp and for vLLM with 8 concurrent clients?
+- [[EXP-20261104-ssfv1c]] Native NixOS with stock ACPI: is the GPU clock locked on AC only, and how much memory does Linux get?
+- [[EXP-20261104-ssfy1p]] Does exposing the hidden SSPM (NVDA8400) device give Linux working GPU power management?

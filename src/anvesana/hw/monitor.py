@@ -7,6 +7,7 @@ scripts so old CSVs stay comparable; the rest are new:
   gpu_sm_clock_mhz, gpu_mem_clock_mhz
   gpu_throttle_reasons  NVML clock-event bitmask (power cap, thermal, ...)
   phase                 benchmark phase, read from --phase-file when run by the suite
+  on_ac                 1 on AC power, 0 on battery, empty without a battery
 
 RAM "used" is total - available on both OSes (the PowerShell version used
 total - free, which counts the standby cache as used).
@@ -27,7 +28,7 @@ COLUMNS = [
     "timestamp_iso", "elapsed_sec", "cpu_util_pct", "soc_temp_c", "ram_used_gb", "ram_total_gb", "ram_pct",
     "gpu_util_pct", "gpu_mem_used_mb", "gpu_mem_total_mb", "gpu_temp_c", "gpu_power_w", "gpu_clock_mhz",
     "npu_temp_c", "npu_power_w",
-    "cpu_freq_mhz", "thermal_max_c", "gpu_sm_clock_mhz", "gpu_mem_clock_mhz", "gpu_throttle_reasons", "phase",
+    "cpu_freq_mhz", "thermal_max_c", "gpu_sm_clock_mhz", "gpu_mem_clock_mhz", "gpu_throttle_reasons", "phase", "on_ac",
 ]
 
 
@@ -35,6 +36,15 @@ def _fmt(v, digits=1):
     if v is None:
         return ""
     return f"{v:.{digits}f}" if isinstance(v, float) else str(v)
+
+
+def _on_ac() -> str:
+    """Per row, since a run's AC state can change mid-run (on purpose or not)."""
+    try:
+        battery = psutil.sensors_battery()
+    except Exception:
+        return ""
+    return "" if battery is None else str(int(bool(battery.power_plugged)))
 
 
 def add_arguments(p):
@@ -87,7 +97,7 @@ def main(args) -> int:
                     _fmt(g.get("temp_c")), _fmt(g.get("power_w"), 2), _fmt(g.get("gfx_clock_mhz")),
                     _fmt(n.get("temp_c")), _fmt(n.get("power_w"), 2),
                     _fmt(h["cpu_freq_mhz"], 0), _fmt(h["thermal_max_c"]), _fmt(g.get("sm_clock_mhz")),
-                    _fmt(g.get("mem_clock_mhz")), _fmt(g.get("throttle_reasons")), phase,
+                    _fmt(g.get("mem_clock_mhz")), _fmt(g.get("throttle_reasons")), phase, _on_ac(),
                 ]
                 writer.writerow(row)
                 f.flush()

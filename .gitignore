@@ -9,3 +9,8 @@ scratch/
 # yajna's per-machine state (notebook registry). yajna 0.18.1 on Windows writes it into the
 # repo instead of ~/.local/state; it holds local absolute paths.
 .local/
+
+# Nix build outputs; local ACPI overrides hold vendor tables (scripts/acpi-hidden-devices.py)
+/result
+/result-*
+nix/local/

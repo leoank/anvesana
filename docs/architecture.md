@@ -58,7 +58,7 @@ flowchart LR
   CLI[bench CLI<br/>cli.py] --> RUN[runner]
   CLI --> INV[inventory command]
   CLI --> QRY[health · history · compare · show · fleet]
-  RUN -->|one process each| SUITE[suite/*<br/>cpu gpu tensor cublaslt tensorrt cutlass disk]
+  RUN -->|one process each| SUITE[suite/*<br/>cpu gpu tensor cublaslt tensorrt cutlass llm disk]
   RUN -->|separate process| MON[hw/monitor<br/>telemetry.csv]
   RUN --> ENV[framework/environment]
   RUN --> STORE[(results store)]
@@ -71,6 +71,7 @@ flowchart LR
   INV --> STORE
   PROBE[scripts/msi-admin-probe.ps1<br/>elevated, read-only] -.-> LOG[docs/n1x-bringup-log.md]
   RGB[scripts/msi-mystic-light.py] -.-> LOG
+  LIVE[flake.nix · nix/<br/>NixOS live USB] -.->|native Linux| RUN
 ```
 
 **Benchmark framework** (`src/anvesana/framework/`, `suite/`, `hw/`):
@@ -109,6 +110,21 @@ flowchart LR
   the lighting changes. It never calls a setter (ADR-0008).
 - **`msi-mystic-light.py`.** Drives the keyboard RGB controller (`1462:1609`) with the
   protocol taken from MSI's code. It refuses save-to-flash (ADR-0009).
+
+**LLM replication** (docs/rtx-spark-replication.md; ADR-0013 to ADR-0016):
+- **`suite/llm`.** `llama-bench` from a pinned llama.cpp release, with prefill and decode
+  measured separately, each with GPU power, clock and throttle bits. `scripts/llm-fetch.py`
+  downloads and sha256-checks the build and the GPT-OSS GGUFs. `scripts/llm-conditions.py`
+  runs it per AC / battery state; `scripts/llm-concurrency.py` measures N-client server
+  throughput (vLLM or llama-server).
+- **NixOS live image** (`flake.nix`, `nix/`). NVIDIA's N1X kernel (Ubuntu 7.0.0-1022), driver
+  615.78.08 with the open modules, and nix-ld for the prebuilt llama.cpp; boot entries for
+  stock ACPI, `acpi_osi="!Windows 2022"` and an SSPM DSDT override; data on a `SPARKDATA` drive.
+- **`acpi-hidden-devices.py`.** Lists and RAM-only exposes devices hidden from "Windows 2022".
+- **`rtx-spark-preflight.ps1` / `rtx-spark-state.ps1`.** A read-only safety check, then
+  journaled, confirm-each Windows changes (NVPCF device, restore point, BitLocker recovery
+  key and suspend).
+- **The telemetry `on_ac` column** records the power source for every sample.
 
 **Notebook.** `notes/` is a yajna `project` notebook (`yajna.toml`): the project page,
 agent sessions and the daily log. Its files are kept LF by `.gitattributes`; yajna ≥ 0.19.0
@@ -161,5 +177,8 @@ writes LF on Windows (ADR-0012).
   vendor collections may tell.
 - **ESRT device firmware.** Which component does each of the three "Device Firmware" GUIDs
   update?
+- **N1X Linux power management.** Is the AC clock lock real on this laptop, and is the
+  hidden SSPM device (NVDA8400) the missing piece? Tested by the five replication experiments
+  on the project page.
 - **Inventory speed.** About 30 s of the collection is the per-device property sweep;
   SetupAPI would be faster if it ever matters.
