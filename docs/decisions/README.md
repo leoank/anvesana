@@ -12,7 +12,7 @@ and never renumbered. A decision that changes an earlier one supersedes it; both
 | [0005](ADR-0005-copy-firmware-blobs-on-request-content-addressed.md) | Copy driver-package firmware only on request, stored once per content per machine | accepted |
 | [0006](ADR-0006-compare-exits-non-zero-while-gaps-remain.md) | `inventory compare` reports verdicts and exits non-zero while bring-up gaps remain | accepted |
 | [0007](ADR-0007-hid-as-parsed-collections-in-one-schema.md) | Record HID devices as parsed top-level collections in one schema for both OSes | accepted |
-| [0008](ADR-0008-probe-vendor-firmware-read-only-from-a-separate-script.md) | Probe vendor firmware interfaces read-only, from a separate elevated script | accepted |
+| [0008](ADR-0008-probe-vendor-firmware-read-only-from-a-separate-script.md) | Probe vendor firmware interfaces read-only, from a separate elevated script | accepted; amended by 0018 |
 | [0009](ADR-0009-mystic-light-protocol-from-vendor-code-never-write-flash.md) | Take the keyboard RGB protocol from the vendor's code; never write the controller's flash | accepted |
 | [0010](ADR-0010-record-bios-and-system-in-every-run.md) | Record BIOS and system identity in every run's environment | accepted |
 | [0011](ADR-0011-keep-notebook-files-lf.md) | Keep the notebook's files LF in git and in checkouts | superseded by 0012 |
@@ -22,6 +22,7 @@ and never renumbered. A decision that changes an earlier one supersedes it; both
 | [0015](ADR-0015-acpi-changes-only-as-per-boot-ram-overrides.md) | Change ACPI only through per-boot RAM overrides; vendor tables never enter git | accepted |
 | [0016](ADR-0016-journaled-windows-state-changes-with-bitlocker-gate.md) | Make Windows state changes through a journaled, confirm-each script gated on BitLocker recovery and a restore point | accepted |
 | [0017](ADR-0017-nvidia-drm-display-and-a-reusable-n1x-module.md) | Drive the display with patched nvidia-drm, and keep N1X hardware support in a reusable NixOS module | accepted |
+| [0018](ADR-0018-switch-msi-modes-through-msi-centers-own-service.md) | Switch MSI power modes by writing the registry value MSI Center's UI writes, letting its service apply them | accepted |
 
 Decisions that predate this notebook (one process per benchmark, per-benchmark `VERSION`,
 committed baselines, per-node extras from one `uv.lock`) are described in the top-level

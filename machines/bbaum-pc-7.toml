@@ -63,6 +63,6 @@ tolerance_pct = 10
 [health.tolerance_overrides]
 "tensor.*" = 5           # register-only kernels: very repeatable
 "gpu.*" = 8
-"cublaslt.*" = 8         # power-capped at ~47 W: clocks vary with temperature
+"cublaslt.*" = 8         # power-limited (~61 W on AC, Best performance): clocks vary with temperature
 "disk.*" = 30            # NVMe results swing with SSD thermal/power state
 "*_latency" = 40

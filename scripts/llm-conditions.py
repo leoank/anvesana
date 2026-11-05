@@ -52,6 +52,8 @@ def main(argv=None) -> int:
     p.add_argument("--label", required=True, help="what else is set, e.g. npcf-on, npcf-off, wsl, nixos-stock")
     p.add_argument("--conditions", default="ac,dc", help="comma list of: ac, dc (run in this order)")
     p.add_argument("--models", default="gpt-oss-20b,gpt-oss-120b")
+    p.add_argument("--benchmarks", default="llm",
+                   help="profile benchmark ids for `bench run --only`, e.g. gpu,tensor,cublaslt,tensorrt_rtx")
     p.add_argument("--min-battery", type=float, default=50.0, help="refuse a battery run below this percent")
     p.add_argument("--settle-s", type=float, default=60.0, help="wait after a power change before running")
     p.add_argument("--timeout-s", type=float, default=600.0)
@@ -70,8 +72,9 @@ def main(argv=None) -> int:
         print(f"settling {args.settle_s:.0f} s so the firmware applies the new power state ...", flush=True)
         time.sleep(args.settle_s)
         extra = [a for a in args.extra if a != "--"]
-        cmd = ["run", "--only", "llm", "--tag", f"{args.label}-{condition}", "--set", f"llm.models={args.models}",
-               *extra]
+        cmd = ["run", "--only", args.benchmarks, "--tag", f"{args.label}-{condition}", *extra]
+        if "llm" in args.benchmarks.split(","):
+            cmd += ["--set", f"llm.models={args.models}"]
         print("$ bench " + " ".join(cmd), flush=True)
         rc = subprocess.call([sys.executable, "-m", "anvesana", *cmd])
         if rc not in (0, 1):  # 1 = health FAIL, still a result

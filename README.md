@@ -232,7 +232,9 @@ The running bring-up log for this machine, with every finding, what worked and w
 - Full TensorRT's win_arm64 wheel lacks its Myelin resource DLLs, so it cannot build engines on
   Windows. Profiles list it with `os = ["linux"]`. TensorRT for RTX works on both OSes but picks slow
   kernels in 1.7 (FP16 ≈ 28 TFLOPS).
-- The N1X GPU is power-capped at about 47 W. Instruction-level kernels hold ~2.4 GHz; real GEMMs drop
-  to ~1.3–1.5 GHz. Power and clock are therefore recorded alongside throughput.
+- The N1X GPU's power budget depends on the power mode and on AC / battery (set by NVIDIA's NVPCF
+  driver with the MSI mode). On AC in "Best performance" (2026-10-29 baseline) compute-bound
+  kernels draw 61–76 W at ~2.5 GHz and cuBLASLt GEMMs ~61 W at ~2.0 GHz; LLM decode, which is
+  memory-bound, stays at 20–45 W. Power and clock are therefore recorded alongside throughput.
 - The "1 PFLOP" spec is NVFP4 with 2:4 sparsity. `tensor.nvfp4_sparse` reaches 91–97% of it.
 - Old PowerShell/bash scripts and their CSVs are in `legacy/`; `bench compare` still reads those CSVs.

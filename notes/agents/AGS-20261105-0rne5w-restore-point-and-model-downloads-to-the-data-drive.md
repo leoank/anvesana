@@ -1,0 +1,61 @@
+---
+id: AGS-20261105-0rne5w
+type: agent_session
+schema_version: 1
+title: Restore point and model downloads to the data drive
+model: claude-opus-5-5
+harness: claude-code
+started: 2026-11-05T00:42+00:00
+finished: null
+created_entities: []
+edited_entities: [EXP-20261104-ssfqvw]
+outcome: pending          # done | failed | aborted | pending
+created: 2026-11-05
+author: agent:claude
+---
+
+## Task
+
+Ank stored the BitLocker recovery key and asked for the restore point, plus the model
+downloads to the data drive (D:, label "MSI") in parallel.
+
+## What happened
+- D: is a 117 GiB exFAT USB flash disk (MBR), empty apart from System Volume Information.
+  The models go to `D:\models`, one after the other (about 20 MB/s, the stick's write speed).
+- `rtx-spark-state.ps1 restore-point` ran elevated: System Protection was enabled on C:, and
+  the point "anvesana: before RTX Spark replication step" was created at 2026-11-05 00:40:06.
+- The journal shows Ank's own `bitlocker-recovery-key` run at 00:34; the key was not recorded.
+- The drive's label is "MSI", while the live image mounts by label `SPARKDATA`; asked Ank
+  rather than relabelling the drive.
+- Relabelled D: to `SPARKDATA`. Both models downloaded and sha256-verified (20B 11.3 GiB, 120B 59.0 GiB).
+- Fixed `bench llm` for b12119's renamed flags (`-fa on`, `-lm none|mmap`); the first AC attempt
+  failed before measuring anything and is saved as a partial run.
+- The sampler now keeps only GPU-busy samples, so model loading no longer dilutes power and
+  clock. `scripts/llm-telemetry.py` recomputes earlier runs from `telemetry.csv`.
+- Ank asked to capture the power profiles. Runs now record the MSI scenario and Energy Saver; the
+  registry `EnergySaverState` was not an on/off flag, so the state comes from `GetSystemPowerStatus`.
+  The first AC run turned out to be in ECO-Silent.
+- LLM sweep, GPT-OSS-20B decode, NVPCF on, Energy Saver off:
+  - Battery: ECO 78.1, Balanced 80.3, Perf 81.1, Boost 82.5 tok/s, at 21–25 W and 1.9–2.2 GHz.
+  - AC: ECO 76.2, Balanced 80.6, Perf 85.1, Boost 78.4 tok/s, at 25–45 W and 2.1–2.4 GHz.
+  - Decode is memory-bound, so the mode barely moves it; Windows never comes near 780 MHz.
+- Previous baseline (2026-10-29, AC, Best performance): compute kernels drew 61–76 W at 2.5 GHz,
+  so the README's 47 W cap was wrong and is corrected.
+- MSI Center code read by a subagent: a mode switch is `Set_Data(0xD2)` plus NVPCF keys
+  3234/3235 = 60/80/100/120, applied by MSI's SYSTEM service when the registry `Mode` changes.
+  Ank chose registry switching through MSI's service (ADR-0018, amends ADR-0008).
+- `rtx-spark-state.ps1 msi-mode` was verified on the first use: we wrote `Mode` only, and MSI set
+  ShiftMode 3→2 and the Windows overlay itself.
+- Compute sweep started (gpu, tensor, cublaslt, tensorrt_rtx).
+  - ECO-Silent on AC: cuBLASLt is held to about 25 W / 1.2 GHz, half the baseline throughput.
+    `tensor` drew 36–43 W; memory bandwidth was unchanged.
+  - Balanced on AC was running when Ank went to sleep. Performance and Boost wait on a UAC prompt;
+    the battery compute runs (four modes) come after.
+- Uncommitted: llm.py fixes, `llm-mode-check.py`, `llm-telemetry.py`, the `--benchmarks` option,
+  the environment power fields, `msi-mode`, ADR-0018, and the README/profile 47 W fix.
+- Balanced on AC, compute: cuBLASLt fp16 60.9 TFLOPS at 35 W / 1.5 GHz; tensor.nvfp4_sparse 856
+  TFLOPS at 46 W. The cap rises with the mode (ECO about 25 W, Balanced about 35 W, baseline about 61 W).
+- The Performance switch's UAC prompt was cancelled (timed out with nobody there). The mode check
+  then refused to run under the wrong label, so nothing ran mislabelled. Fixed the driver
+  (`scratchpad/sweep-compute.ps1`) so a cancelled prompt stops it straight away. The machine is
+  left in Balanced on AC. Remaining: Performance and Boost on AC, then four modes on battery.

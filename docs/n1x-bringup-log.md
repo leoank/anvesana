@@ -417,3 +417,21 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
   recovery; the key exists but the author has no copy yet); System Protection off on C: (no restore
   points); NPCF OK with `oem84.inf` 32.0.16.1679; BIOS G2621NMS.10B; on AC at 98 %; WSL has no
   distribution. Added the ProArt nvidia-drm display fixes to the NixOS module for daily-driver use.
+- **2026-11-05**: How MSI Center S switches User Scenario modes, read statically from its code
+  (`API_UserScenario.dll`, `MSIWMIACPI2.dll`, `NvApiShim.dll`, `UC_Main`; nothing run or written)
+  **[verified from code]**:
+  - **Trigger:** the UI only writes `HKLM\...\User Scenario\Mode` (1 Perf, 2 Balanced, 3 ECO,
+    5 AI) over the `MSI_SERVICE_2` pipe. `MSI_Center_S_Server.exe` (SYSTEM) watches the value and
+    applies the mode.
+  - **EC shift mode:** `MSI_ACPI.Set_Data(0xD2, C4 / C5 / C1 / C2)` (Perf / Boost / Balanced /
+    ECO), not `Set_AP`.
+  - **Other EC bits**, read-modify-write: 0xD4 bit 4 (silent, ECO only), 0x98 bit 7 (Cooler Boost,
+    from the `Fan` value, Perf only), 0xD3 (keyboard backlight off in ECO).
+  - **NVIDIA:** `NvApiShim` PCF calls clear NVPCF table 6 (OEM conditions), then set keys 3234 and
+    3235 to 60 / 80 / 100 / 120 (ECO / Balanced / Perf / Boost). This is the only power-limit-like
+    control in the path, so the GPU budget per mode goes through the NVPCF driver; what the values
+    mean is **[inferred]**.
+  - **Windows:** `PowerSetUserConfiguredAC/DCPowerMode` sets the power-mode overlay.
+  - **Persistence:** no BIOS or UEFI write is reachable from this path; the EC and NVPCF settings
+    are runtime and re-applied at boot **[inferred]**.
+  - **Boost** = shift C5 + NVPCF 120 + registry `Boost=1`.

@@ -1,6 +1,6 @@
 # ADR-0008: Probe vendor firmware interfaces read-only, from a separate elevated script
 
-Status: accepted
+Status: accepted; amended by ADR-0018 (registry write of the MSI mode)
 Date: 2026-10-30
 
 ## Context

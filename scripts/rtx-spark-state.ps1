@@ -11,6 +11,10 @@
       npcf-enable               undo of npcf-disable
       bitlocker-recovery-key    add a BitLocker recovery-password protector to C: and show it once
       bitlocker-suspend         suspend BitLocker for exactly one reboot (before a Secure Boot change)
+      msi-mode <name>           switch the MSI Center User Scenario (ECO-Silent, Balanced, Performance,
+                                Performance Boost, AI Engine) by writing the registry value MSI Center's
+                                UI writes; MSI's own SYSTEM service then sets the EC, NVPCF and the
+                                Windows power mode. No EC or WMI write is made by this script.
 
     Secrets: the recovery password is shown on this console only. It is never written to the journal,
     the transcript or any file; store it off this machine (password manager, paper) before going on.
@@ -20,8 +24,12 @@
 #>
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('status', 'restore-point', 'npcf-disable', 'npcf-enable', 'bitlocker-recovery-key', 'bitlocker-suspend')]
+    [ValidateSet('status', 'restore-point', 'npcf-disable', 'npcf-enable', 'bitlocker-recovery-key', 'bitlocker-suspend', 'msi-mode')]
     [string]$Action,
+    [Parameter(Position = 1)]
+    [ValidateSet('ECO-Silent', 'Balanced', 'Performance', 'Performance Boost', 'AI Engine')]
+    [string]$Mode,
+    [switch]$Yes,   # msi-mode only: the UAC prompt was the confirmation (used by sweeps)
     [string]$OutDir = (Join-Path $HOME "anvesana-results\$($env:COMPUTERNAME.ToLower())\state")
 )
 
@@ -44,7 +52,33 @@ function Get-State {
         last_restore    = (Get-ComputerRestorePoint -ErrorAction SilentlyContinue | Select-Object -Last 1 |
                            ForEach-Object { "$($_.ConvertToDateTime($_.CreationTime).ToString('s')) $($_.Description)" })
         on_ac           = ((Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue).BatteryStatus -eq 2)
+        msi             = Get-MsiScenario
     }
+}
+
+# MSI Center S User Scenario (docs/n1x-bringup-log.md, 2026-11-05): the UI writes Mode (and Boost),
+# MSI_Center_S_Server.exe watches the key and applies EC shift mode, NVPCF level and Windows power mode.
+$MsiKey = 'HKLM:\SOFTWARE\WOW6432Node\MSI\MSI Center S\Component\Base Module\User Scenario'
+$MsiModes = @{
+    'ECO-Silent'        = @{ Mode = 3; Boost = 0; Shift = 3 }
+    'Balanced'          = @{ Mode = 2; Boost = 0; Shift = 2 }
+    'Performance'       = @{ Mode = 1; Boost = 0; Shift = 0 }
+    'Performance Boost' = @{ Mode = 1; Boost = 1; Shift = 5 }
+    'AI Engine'         = @{ Mode = 5; Boost = 0; Shift = 2 }
+}
+
+function Get-MsiScenario {
+    $p = Get-ItemProperty $MsiKey -ErrorAction SilentlyContinue
+    if ($p) { "Mode $($p.Mode) Boost $($p.Boost) ShiftMode $($p.ShiftMode)" } else { 'absent' }
+}
+
+function Wait-MsiShift([int]$Shift, [int]$TimeoutS = 20) {
+    $t0 = Get-Date
+    while (((Get-Date) - $t0).TotalSeconds -lt $TimeoutS) {
+        if ((Get-ItemProperty $MsiKey).ShiftMode -eq $Shift) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
 }
 
 function Write-Journal($Action, $Before, $After, $Note) {
@@ -127,6 +161,34 @@ switch ($Action) {
         $after = Get-State; Write-Journal $Action $before $after $note
         [void](Read-Host "Press Enter once the key is stored")
         Clear-Host
+    }
+    'msi-mode' {
+        if (-not $Mode) { throw "msi-mode needs a mode: $($MsiModes.Keys -join ', ')" }
+        if (-not (Test-Path $MsiKey)) { throw "MSI Center S User Scenario key not found: $MsiKey" }
+        $want = $MsiModes[$Mode]
+        $cur = Get-ItemProperty $MsiKey
+        if ($cur.Mode -eq $want.Mode -and [int]$cur.Boost -eq $want.Boost -and $cur.ShiftMode -eq $want.Shift) {
+            Write-Host "Already $Mode ($(Get-MsiScenario)); nothing changed."
+            exit 0
+        }
+        if (-not $Yes) {
+            Confirm-Step "switch MSI Center to $Mode by writing User Scenario Mode=$($want.Mode) Boost=$($want.Boost)" `
+                         "rtx-spark-state.ps1 msi-mode '<previous mode>' (before: $(Get-MsiScenario))"
+        }
+        # MSI's watcher acts on a change of Mode: Performance <-> Boost keeps Mode 1, so step
+        # through Balanced first (the UI forces the same re-apply with a ChangeBoost message).
+        if ($cur.Mode -eq $want.Mode) {
+            Set-ItemProperty $MsiKey -Name Mode -Value 2 -Type DWord
+            if (-not (Wait-MsiShift 2)) { throw "MSI did not apply the intermediate Balanced step" }
+            Start-Sleep -Seconds 2
+        }
+        Set-ItemProperty $MsiKey -Name Boost -Value $want.Boost -Type DWord
+        Set-ItemProperty $MsiKey -Name Mode -Value $want.Mode -Type DWord
+        $ok = Wait-MsiShift $want.Shift
+        $after = Get-State
+        Write-Journal $Action $before $after "$Mode requested; ShiftMode $(if ($ok) { 'confirmed' } else { 'NOT confirmed' })"
+        $after | ConvertTo-Json -Depth 5
+        if (-not $ok) { Write-Host "MSI did not report ShiftMode $($want.Shift) within 20 s." -ForegroundColor Red; exit 1 }
     }
     'bitlocker-suspend' {
         Confirm-Step "suspend BitLocker on C: for one reboot (do this right before changing Secure Boot in firmware setup)" `

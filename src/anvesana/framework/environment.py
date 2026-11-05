@@ -197,4 +197,51 @@ def _windows_power_profile() -> str:
         parts.append(f"plan={out.split('(')[-1].rstrip(')\n ') if '(' in out else out.strip()}")
     except (OSError, subprocess.SubprocessError):
         pass
+    saver = _energy_saver_on()
+    if saver is not None:
+        parts.append(f"energy_saver={'on' if saver else 'off'}")
+    msi = _msi_scenario()
+    if msi:
+        parts.append(f"msi={msi}")
     return ", ".join(parts)
+
+
+def _energy_saver_on() -> bool | None:
+    """Windows Energy Saver (battery saver), from GetSystemPowerStatus's SystemStatusFlag.
+
+    Not the registry's Power\\EnergySaverState: it read 1 while Energy Saver was on and 2
+    after it was turned off, so it is not a plain on/off flag."""
+    import ctypes
+
+    class _Status(ctypes.Structure):
+        _fields_ = [("ACLineStatus", ctypes.c_ubyte), ("BatteryFlag", ctypes.c_ubyte),
+                    ("BatteryLifePercent", ctypes.c_ubyte), ("SystemStatusFlag", ctypes.c_ubyte),
+                    ("BatteryLifeTime", ctypes.c_ulong), ("BatteryFullLifeTime", ctypes.c_ulong)]
+
+    status = _Status()
+    if not ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(status)):
+        return None
+    return bool(status.SystemStatusFlag & 1)
+
+
+# MSI Center S "User Scenario" registry Mode -> name, as mapped on bbaum-pc-7 with
+# scripts/msi-admin-probe.ps1 (docs/n1x-bringup-log.md): each sets a different EC shift mode.
+_MSI_SCENARIOS = {1: "Performance", 2: "Balanced", 3: "ECO-Silent", 5: "AI Engine"}
+
+
+def _msi_scenario() -> str | None:
+    """MSI Center's current User Scenario on MSI laptops, else None."""
+    import winreg
+
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                             r"SOFTWARE\WOW6432Node\MSI\MSI Center S\Component\Base Module\User Scenario")
+        mode = winreg.QueryValueEx(key, "Mode")[0]
+        try:
+            shift = winreg.QueryValueEx(key, "ShiftMode")[0]
+        except OSError:
+            shift = None
+    except OSError:
+        return None
+    name = "Performance Boost" if mode == 1 and shift == 5 else _MSI_SCENARIOS.get(mode, f"Mode {mode}")
+    return name if shift is None else f"{name} (shift {shift})"

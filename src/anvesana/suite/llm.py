@@ -77,6 +77,10 @@ MODELS = {
 }
 
 
+# Power, clock and throttle sub-metrics use only samples at or above this GPU utilisation.
+BUSY_UTIL_PCT = 50
+
+
 def default_models_dir() -> Path:
     env = os.environ.get("ANVESANA_MODELS_DIR")
     return Path(env) if env else Path.home() / ".cache" / "anvesana" / "models"
@@ -114,7 +118,7 @@ def add_arguments(p):
 
 def _llama_bench(exe: str, model: Path, args, n_prompt: int, n_gen: int) -> dict:
     cmd = [exe, "-m", str(model), "-p", str(n_prompt), "-n", str(n_gen), "-r", str(args.reps),
-           "-ngl", str(args.ngl), "-fa", "1", "-mmp", "1" if args.mmap else "0", "-o", "json"]
+           "-ngl", str(args.ngl), "-fa", "on", "-lm", "mmap" if args.mmap else "none", "-o", "json"]
     out = subprocess.run(cmd, capture_output=True, text=True)
     if out.returncode != 0:
         raise RuntimeError(f"llama-bench failed ({out.returncode}): {out.stderr.strip()[-2000:]}")
@@ -159,8 +163,11 @@ def run(args) -> list[Metric]:
         for label, n_prompt, n_gen in (("pp", args.prompt, 0), ("tg", 0, args.gen)):
             n = n_prompt or n_gen
             step(f"{name}: {'prefill' if label == 'pp' else 'decode'} {label}{n} ...")
-            with GpuSampler(interval_s=0.1) as sampler:
+            with GpuSampler(interval_s=0.05) as sampler:
                 row = _llama_bench(exe, path, args, n_prompt, n_gen)
+            # llama-bench loads the model inside the same call, which can take minutes
+            # from a slow drive: keep only the samples where the GPU was working.
+            sampler.samples = [s for s in sampler.samples if (s.get("util_pct") or 0) >= BUSY_UTIL_PCT]
             tps = float(row["avg_ts"])
             build = f"build {row.get('build_number')} ({str(row.get('build_commit', ''))[:7]})"
             if str(row.get("build_commit", "")) and not LLAMA_CPP_COMMIT.startswith(str(row["build_commit"])):
