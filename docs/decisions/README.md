@@ -18,9 +18,10 @@ and never renumbered. A decision that changes an earlier one supersedes it; both
 | [0011](ADR-0011-keep-notebook-files-lf.md) | Keep the notebook's files LF in git and in checkouts | superseded by 0012 |
 | [0012](ADR-0012-keep-gitattributes-lf-drop-manual-conversion.md) | Keep the notebook LF through `.gitattributes` alone; stop converting pages by hand (yajna ≥ 0.19.0) | accepted |
 | [0013](ADR-0013-llm-inference-with-one-pinned-llama-cpp-build.md) | Measure LLM inference with one pinned llama.cpp build, the same binary in WSL and on native Linux | accepted |
-| [0014](ADR-0014-native-linux-from-a-nixos-live-usb.md) | Run native-Linux tests from a NixOS live USB with NVIDIA's N1X kernel and driver 615.78.08 | accepted |
+| [0014](ADR-0014-native-linux-from-a-nixos-live-usb.md) | Run native-Linux tests from a NixOS live USB with NVIDIA's N1X kernel and driver 615.78.08 | accepted; display amended by 0017 |
 | [0015](ADR-0015-acpi-changes-only-as-per-boot-ram-overrides.md) | Change ACPI only through per-boot RAM overrides; vendor tables never enter git | accepted |
 | [0016](ADR-0016-journaled-windows-state-changes-with-bitlocker-gate.md) | Make Windows state changes through a journaled, confirm-each script gated on BitLocker recovery and a restore point | accepted |
+| [0017](ADR-0017-nvidia-drm-display-and-a-reusable-n1x-module.md) | Drive the display with patched nvidia-drm, and keep N1X hardware support in a reusable NixOS module | accepted |
 
 Decisions that predate this notebook (one process per benchmark, per-benchmark `VERSION`,
 committed baselines, per-node extras from one `uv.lock`) are described in the top-level

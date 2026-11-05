@@ -56,7 +56,7 @@ $devices = Get-PnpDevice -ErrorAction SilentlyContinue |
     Where-Object { $_.InstanceId -match 'NVDA0820|NVDA8400|NVDA3000|MTK00055' }
 $r.acpi_devices = @($devices | ForEach-Object {
     [ordered]@{ instance = $_.InstanceId; name = $_.FriendlyName; status = "$($_.Status)"; problem = "$($_.Problem)" } })
-$npcfDriver = Get-CimInstance Win32_PnPSignedDriver -Filter "DeviceID LIKE 'ACPI\\\\NVDA0820%'" -ErrorAction SilentlyContinue
+$npcfDriver = Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue | Where-Object { $_.DeviceID -like 'ACPI\NVDA0820*' } | Select-Object -First 1
 $r.npcf_driver = if ($npcfDriver) { "$($npcfDriver.InfName) $($npcfDriver.DriverVersion)" } else { $null }
 
 $smi = Try-Get { (nvidia-smi --query-gpu=driver_version,memory.total,clocks.max.sm --format=csv,noheader | Select-Object -First 1).Trim() }

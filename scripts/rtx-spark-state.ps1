@@ -104,16 +104,27 @@ switch ($Action) {
         Write-Host "`nReboot so the driver re-applies its power tables, then run 'status'."
     }
     'bitlocker-recovery-key' {
-        Confirm-Step "add a recovery-password protector to C: (your pre-boot password keeps working unchanged)" `
-                     "Remove-BitLockerKeyProtector -MountPoint C: -KeyProtectorId <id shown below>"
-        $vol = Add-BitLockerKeyProtector -MountPoint C: -RecoveryPasswordProtector -WarningAction SilentlyContinue
-        $kp = $vol.KeyProtector | Where-Object KeyProtectorType -eq 'RecoveryPassword' | Select-Object -Last 1
-        Write-Host "`n================ BITLOCKER RECOVERY KEY (shown once) ================" -ForegroundColor Red
+        # Show the existing recovery password if C: has one (device encryption usually does);
+        # add one only if it has none.
+        $kp = (Get-BitLockerVolume -MountPoint C:).KeyProtector | Where-Object KeyProtectorType -eq 'RecoveryPassword' |
+            Select-Object -First 1
+        if ($kp) {
+            Confirm-Step "show C:'s existing BitLocker recovery key on this console (nothing is changed)" "none needed"
+            $note = "existing recovery password shown (key not recorded)"
+        } else {
+            Confirm-Step "add a recovery-password protector to C: (your pre-boot password keeps working unchanged)" `
+                         "Remove-BitLockerKeyProtector -MountPoint C: -KeyProtectorId <id shown below>"
+            $vol = Add-BitLockerKeyProtector -MountPoint C: -RecoveryPasswordProtector -WarningAction SilentlyContinue
+            $kp = $vol.KeyProtector | Where-Object KeyProtectorType -eq 'RecoveryPassword' | Select-Object -Last 1
+            $note = "recovery-password protector added (key not recorded)"
+        }
+        Write-Host "`n======================== BITLOCKER RECOVERY KEY ========================" -ForegroundColor Red
         Write-Host "  Protector ID : $($kp.KeyProtectorId)"
         Write-Host "  Recovery key : $($kp.RecoveryPassword)" -ForegroundColor Red
-        Write-Host "=====================================================================" -ForegroundColor Red
+        Write-Host "=========================================================================" -ForegroundColor Red
         Write-Host "Store it off this machine now. It is not saved anywhere by this script."
-        $after = Get-State; Write-Journal $Action $before $after "recovery-password protector added (key not recorded)"
+        Write-Host "The recovery screen shows a key ID; check it matches the first 8 characters of the Protector ID."
+        $after = Get-State; Write-Journal $Action $before $after $note
         [void](Read-Host "Press Enter once the key is stored")
         Clear-Host
     }

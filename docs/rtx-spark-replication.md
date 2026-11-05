@@ -106,7 +106,7 @@ exFAT with the label `SPARKDATA`, holding `models/` (and optionally `ssh/authori
 Secure Boot off (after gate 2), boot the USB from the firmware boot menu, choose an entry:
 
 ```bash
-cat /etc/anvesana-boot-entry                     # default | osi | sspm
+cat /etc/anvesana-boot-entry                     # default | osi | sspm | simpledrm
 bench inventory collect                          # snapshot of this boot: drivers, ACPI devices, firmware
 ls /sys/bus/acpi/devices | grep -E 'NVDA8400|NVDA3000|MTK00055|NVDA300[AB]'
 python3 /root/anvesana/scripts/llm-conditions.py --label nixos-$(cat /etc/anvesana-boot-entry) --conditions ac,dc

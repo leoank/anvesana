@@ -111,15 +111,17 @@ flowchart LR
 - **`msi-mystic-light.py`.** Drives the keyboard RGB controller (`1462:1609`) with the
   protocol taken from MSI's code. It refuses save-to-flash (ADR-0009).
 
-**LLM replication** (docs/rtx-spark-replication.md; ADR-0013 to ADR-0016):
+**LLM replication** (docs/rtx-spark-replication.md; ADR-0013 to ADR-0017):
 - **`suite/llm`.** `llama-bench` from a pinned llama.cpp release, with prefill and decode
   measured separately, each with GPU power, clock and throttle bits. `scripts/llm-fetch.py`
   downloads and sha256-checks the build and the GPT-OSS GGUFs. `scripts/llm-conditions.py`
   runs it per AC / battery state; `scripts/llm-concurrency.py` measures N-client server
   throughput (vLLM or llama-server).
-- **NixOS live image** (`flake.nix`, `nix/`). NVIDIA's N1X kernel (Ubuntu 7.0.0-1022), driver
-  615.78.08 with the open modules, and nix-ld for the prebuilt llama.cpp; boot entries for
-  stock ACPI, `acpi_osi="!Windows 2022"` and an SSPM DSDT override; data on a `SPARKDATA` drive.
+- **NixOS** (`flake.nix`, `nix/`). `nixosModules.n1x` (`nix/n1x.nix`) holds the N1X hardware
+  support: NVIDIA's kernel (Ubuntu 7.0.0-1022), driver 615.78.08 with the open modules and
+  nvidia-drm with the ProArt display fixes, CPU init, initrd and sleep policy (ADR-0017). The live
+  image adds nix-ld for the prebuilt llama.cpp, boot entries for stock ACPI, `acpi_osi="!Windows
+  2022"`, an SSPM DSDT override and a simpledrm fallback, and data on a `SPARKDATA` drive.
 - **`acpi-hidden-devices.py`.** Lists and RAM-only exposes devices hidden from "Windows 2022".
 - **`rtx-spark-preflight.ps1` / `rtx-spark-state.ps1`.** A read-only safety check, then
   journaled, confirm-each Windows changes (NVPCF device, restore point, BitLocker recovery

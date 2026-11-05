@@ -412,3 +412,8 @@ Run with `scripts/msi-admin-probe.ps1` from an elevated PowerShell (guided; read
   `scripts/acpi-hidden-devices.py --expose SSPM` applies its 20-byte override unchanged
   [verified: offline, checksum valid; not booted]. llama.cpp b12119 (Windows ARM64 CUDA 13.4) sees
   the GPU with 113,136 MiB through CUDA while 96 GB is reserved and Windows sees 30.5 GiB of RAM.
+- **2026-11-05**: Preflight (`scripts/rtx-spark-preflight.ps1`, elevated, read-only): Secure Boot on;
+  BitLocker on C: with protectors `TpmPin` and `RecoveryPassword` (so a Secure Boot change triggers
+  recovery; the key exists but the author has no copy yet); System Protection off on C: (no restore
+  points); NPCF OK with `oem84.inf` 32.0.16.1679; BIOS G2621NMS.10B; on AC at 98 %; WSL has no
+  distribution. Added the ProArt nvidia-drm display fixes to the NixOS module for daily-driver use.

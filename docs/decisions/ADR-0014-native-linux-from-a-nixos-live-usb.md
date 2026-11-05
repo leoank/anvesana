@@ -1,6 +1,6 @@
 # ADR-0014: Run native-Linux tests from a NixOS live USB with NVIDIA's N1X kernel and driver 615.78.08
 
-Status: accepted
+Status: accepted; display choice amended by ADR-0017
 Date: 2026-11-04
 
 ## Context

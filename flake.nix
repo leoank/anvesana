@@ -12,5 +12,9 @@
       modules = [ ./nix/live.nix ];
     };
     packages.aarch64-linux.rtx-spark-live = self.nixosConfigurations.rtx-spark-live.config.system.build.isoImage;
+
+    # Hardware support for an installed NixOS on an N1X laptop: kernel, NVIDIA
+    # (display included), CPU frequency init, initrd modules, sleep policy.
+    nixosModules.n1x = ./nix/n1x.nix;
   };
 }
