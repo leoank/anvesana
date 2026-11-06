@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import shutil
 import sys
 import tarfile
 import urllib.request
@@ -93,6 +94,14 @@ def fetch_llama_cpp(target_os: str) -> int:
     if found is None:
         print(f"{exe} not found under {dest}")
         return 1
+    # The Linux cudart tarball unpacks into its own directory (the Windows zips both unpack
+    # flat), where libggml-cuda.so cannot find libcudart/libcublas: llama.cpp then silently
+    # falls back to the CPU backend. Put the runtime next to the binaries.
+    for lib in dest.glob("cudart-*/lib*.so*"):
+        target = found.parent / lib.name
+        if not target.exists():
+            shutil.copy2(lib, target)
+            print(f"  {lib.name} -> {found.parent}")
     print(f"llama.cpp {llm.LLAMA_CPP_BUILD}: {found}")
     return 0
 

@@ -125,6 +125,11 @@ def _llama_bench(exe: str, model: Path, args, n_prompt: int, n_gen: int) -> dict
     rows = json.loads(out.stdout)
     if len(rows) != 1:
         raise RuntimeError(f"expected one llama-bench result, got {len(rows)}")
+    # A CUDA backend that fails to load (e.g. libcudart not found) makes llama.cpp fall back
+    # to the CPU without an error: never record that as a GPU result.
+    if args.ngl > 0 and "CUDA" not in str(rows[0].get("backends", "CUDA")):
+        raise RuntimeError(f"llama-bench ran on {rows[0].get('backends')!r}, not CUDA; "
+                           f"check that libggml-cuda's libraries load: {out.stderr.strip()[-1000:]}")
     return rows[0]
 
 

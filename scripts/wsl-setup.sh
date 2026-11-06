@@ -31,7 +31,7 @@ esac
 systemctl is-system-running >/dev/null 2>&1 || echo "note: systemd not running; the Nix daemon needs [boot] systemd=true in /etc/wsl.conf"
 
 sudo apt-get update -qq
-sudo apt-get install -y -qq curl ca-certificates git xz-utils build-essential pciutils
+sudo apt-get install -y -qq curl ca-certificates git xz-utils build-essential pciutils python3.12-dev
 
 if ! command -v uv >/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -54,5 +54,17 @@ if [ "$want_vllm" = 1 ]; then
   venv="$HOME/.cache/anvesana/vllm-$VLLM_VERSION"
   uv venv --python 3.12 "$venv"
   VIRTUAL_ENV="$venv" uv pip install "vllm==$VLLM_VERSION"
-  echo "vLLM in $venv: $venv/bin/vllm serve openai/gpt-oss-20b --revision 6cee5e81ee83917806bbde320786a8fb61efebee"
+  # FlashInfer JIT-compiles its sampling and attention kernels on first use. Its compiler must
+  # match torch's CUDA 13.0 runtime headers: the wheels vLLM pulls in are 13.5 (nvcc, crt, nvvm),
+  # which fail with "CUDA compiler and CUDA toolkit headers are incompatible" / ptxas errors.
+  VIRTUAL_ENV="$venv" uv pip install ninja "nvidia-cuda-nvcc==13.0.*" "nvidia-cuda-crt==13.0.*" "nvidia-nvvm==13.0.*"
+  cu="$venv/lib/python3.12/site-packages/nvidia/cu13"
+  link="$HOME/.cache/anvesana/cuda-link"   # unversioned names for the JIT's -lcuda -lcudart
+  mkdir -p "$link"
+  ln -sf /usr/lib/wsl/lib/libcuda.so.1 "$link/libcuda.so"
+  ln -sf "$cu/lib/libcudart.so.13" "$link/libcudart.so"
+  cat > "$venv/bin/vllm-env" <<ENV
+export CUDA_HOME=$cu PATH=$venv/bin:$cu/bin:\$PATH LIBRARY_PATH=$link
+ENV
+  echo "vLLM in $venv; see docs/rtx-spark-replication.md (step 2) for the serve command."
 fi

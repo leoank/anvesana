@@ -59,3 +59,26 @@ downloads to the data drive (D:, label "MSI") in parallel.
   then refused to run under the wrong label, so nothing ran mislabelled. Fixed the driver
   (`scratchpad/sweep-compute.ps1`) so a cancelled prompt stops it straight away. The machine is
   left in Balanced on AC. Remaining: Performance and Boost on AC, then four modes on battery.
+
+**2026-11-05 evening, AC compute sweep finished** (Performance and Performance Boost via `msi-mode`, both ShiftMode-confirmed):
+
+| MSI mode (AC) | cuBLASLt fp16 | cuBLASLt nvfp4 | tensor.nvfp4_sparse | mem copy |
+|---|---|---|---|---|
+| ECO-Silent | 41 TFLOPS, 24 W, 1.21 GHz | 185, 25 W | 757, 36 W | 251 GB/s |
+| Balanced | 61, 35 W, 1.54 GHz | 245, 36 W | 856, 46 W | 244 GB/s |
+| Performance | 82, 57 W, 1.94 GHz | 328, 59 W | 965, 71 W | 252 GB/s |
+| Performance Boost | 85, 61 W, 1.96 GHz | 324, 62 W | 975, 76 W | 252 GB/s |
+| 2026-10-29 baseline | 86, 61 W, 1.97 GHz | 331, 61 W | 973, 76 W | 252 GB/s |
+
+The GPU power budget follows the MSI mode (NVPCF level 60/80/100/120): GEMMs scale about 2x from ECO to Boost, and register-only kernels change less because they already run near 2.5 GHz. The 2026-10-29 baseline was taken in Performance Boost or something equivalent. Battery runs are waiting: battery 35 %, minimum 50 %.
+
+**2026-11-06, battery compute sweep finished** (battery 100 % -> 59 % at the last start; every switch ShiftMode-confirmed):
+
+| MSI mode (battery) | cuBLASLt fp16 | cuBLASLt nvfp4 | tensor.nvfp4_sparse | mem copy |
+|---|---|---|---|---|
+| ECO-Silent | 46 TFLOPS, 25 W, 1.14 GHz | 199, 26 W | 839, 35 W | 253 GB/s |
+| Balanced | 59, 32 W, 1.32 GHz | 233, 33 W | 904, 45 W | 252 GB/s |
+| Performance | 54, 31 W, 1.23 GHz | 214, 29 W | 917, 49 W | 252 GB/s |
+| Performance Boost | 53, 30 W, 1.21 GHz | 203, 28 W | 901, 46 W | 252 GB/s |
+
+On battery, GEMM power is capped at about 30–35 W in every mode except ECO, so Performance and Boost gain nothing over Balanced; on AC they reach 57–61 W. The ECO battery run came out slightly above the ECO AC run (46 vs 41 TFLOPS), probably because of temperature or ordering; this is not resolved. Decode is memory-bound, which is why the earlier LLM sweep was flat across modes.

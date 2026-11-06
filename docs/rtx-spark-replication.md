@@ -85,9 +85,18 @@ what the model uses.
 ```bash
 export ANVESANA_MODELS_DIR=/mnt/d/models
 uv run python scripts/llm-conditions.py --label wsl --conditions ac,dc
-~/.cache/anvesana/vllm-0.33.0/bin/vllm serve openai/gpt-oss-20b --revision 6cee5e81ee83917806bbde320786a8fb61efebee &
-uv run python scripts/llm-concurrency.py --model openai/gpt-oss-20b --clients 8 --label wsl-vllm
+. ~/.cache/anvesana/vllm-0.33.0/bin/vllm-env       # CUDA_HOME, nvcc 13.0, link paths for FlashInfer's JIT
+vllm serve openai/gpt-oss-20b --revision 6cee5e81ee83917806bbde320786a8fb61efebee \
+  --gpu-memory-utilization 0.14 --kv-cache-memory-bytes 2G --max-model-len 4096 --max-num-seqs 8 &
+uv run python scripts/llm-concurrency.py --model openai/gpt-oss-20b --clients 8 --rounds 4 --label wsl-vllm
 ```
+
+In WSL, CUDA reports WSL's free RAM (about 16 GiB with `memory=20GB`) as the GPU's free
+memory, though the GPU has the 96 GB reservation. vLLM's start-up check and its memory
+profiling both use that number: the profiling fails when free RAM changes during it. The
+fixed `--kv-cache-memory-bytes 2G` skips the profiling (43,602 tokens of cache, plenty for
+8 x 256), and the 0.14 share passes the start-up check. llama.cpp warns about the same
+number but loads the 59 GiB 120B model regardless.
 
 ### 3. Build the live image (in WSL)
 
