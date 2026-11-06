@@ -2,7 +2,7 @@
 __pycache__/
 *.pyc
 # Run results belong in the results store ($ANVESANA_RESULTS_DIR), not the repo;
-# only curated baselines/ are committed.
+# only curated baselines/ and data/curated_runs/ are committed.
 results/
 scratch/
 
