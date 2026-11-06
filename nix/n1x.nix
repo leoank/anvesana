@@ -15,7 +15,22 @@
 
 let
   cfg = config.n1x;
-  kernel = pkgs.callPackage ./kernel.nix { };
+  # kernelPatches = [ ]: callPackage would otherwise fill it with pkgs.kernelPatches (a set).
+  kernel = pkgs.callPackage ./kernel.nix { kernelPatches = [ ]; };
+  # Linux 7.0 maps __FILE__ only under $(srcroot), which for an out-of-tree module is the
+  # module's own tree: the NVIDIA .ko files keep kernel-header paths into kernel.dev (in
+  # WARN strings), which nixpkgs' disallowedReferences rejects. Blank those store hashes.
+  withCleanOpen = drv: drv.overrideAttrs (old: {
+    passthru = old.passthru // {
+      open = old.passthru.open.overrideAttrs (o: {
+        nativeBuildInputs = (o.nativeBuildInputs or [ ]) ++ [ pkgs.removeReferencesTo ];
+        postFixup = (o.postFixup or "") + ''
+          find $out/lib/modules -name '*.ko' -exec \
+            remove-references-to -t ${config.boot.kernelPackages.kernel.dev} {} +
+        '';
+      });
+    };
+  });
   # ProArt Arch build, 03-system/power/payload/assets/hardware/power/n1x-cppc-init.py:
   # restore each policy's full range, then let the firmware pick CPU clocks.
   cppcInit = pkgs.writeText "n1x-cppc-init.py" ''
@@ -64,19 +79,21 @@ in
       modesetting.enable = cfg.nvidiaDisplay;       # nvidia_drm modeset=1 fbdev=1
       nvidiaSettings = false;
       powerManagement.enable = false;
-      package = config.boot.kernelPackages.nvidiaPackages.mkDriver {
+      package = withCleanOpen (config.boot.kernelPackages.nvidiaPackages.mkDriver {
         version = "615.78.08";
         sha256_aarch64 = "5076011350181e81a031f0fd012fe35fe4be37c7820d651fb7aaa894af447a37";
-        # NAR hash of NVIDIA/open-gpu-kernel-modules at tag 615.78.08: not
-        # computable without Nix; the first build prints it.
-        openSha256 = lib.fakeHash;
+        # mkDriver requires the x86_64 hash too; it is only fetched on x86_64.
+        sha256_64bit = lib.fakeHash;
+        # NAR hash of NVIDIA/open-gpu-kernel-modules at tag 615.78.08 (printed by
+        # the first build in WSL, 2026-11-06).
+        openSha256 = "sha256-HBINiOjL0ZJLIAJeNIBYHBnwgUXtNwPPtnFpAI1YwF4=";
         patchesOpen = [
           ./patches/nvidia-open-drm-aarch64-mappings.patch
           ./patches/nvidia-open-pr1368-semsurf-leak.patch
         ];
         useSettings = false;
         usePersistenced = false;
-      };
+      });
     };
     # The ProArt's qualified tuple also sets vblank=1 (h7607a-nvidia.conf); an
     # unknown parameter is logged and ignored, so it is harmless if 615 lacks it.

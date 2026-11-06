@@ -37,6 +37,16 @@ in
   ];
 
   nixpkgs.hostPlatform = "aarch64-linux";
+  # No HTML docs on a benchmark image: python3.12's doc output is not cached and its Sphinx
+  # build fails in nixos-26.05 (docutils 0.22 TypeError in parse_enumerator, 2026-11-06).
+  documentation.doc.enable = false;
+  # The installation-CD profile lists generic initrd drivers (e.g. pata_pcmcia) that Ubuntu's
+  # arm64 nvidia config does not build; let the initrd's module closure skip those.
+  nixpkgs.overlays = [
+    (final: prev: {
+      makeModulesClosure = args: prev.makeModulesClosure (args // { allowMissing = true; });
+    })
+  ];
   isoImage.volumeID = "ANV_SPARK";
   networking.hostName = "bbaum-pc-7";   # matches machines/bbaum-pc-7.toml
   boot.supportedFilesystems = lib.mkForce [ "vfat" "exfat" "ext4" "iso9660" "squashfs" "overlay" ];
@@ -47,19 +57,23 @@ in
     osi.configuration = {
       boot.kernelParams = [ ''acpi_osi="!Windows 2022"'' ];
       environment.etc."anvesana-boot-entry".text = "osi\n";
+      isoImage.appendToMenuLabel = lib.mkForce " - osi (acpi_osi !Windows 2022)";
     };
     # Display fallback: if nvidia-drm gives no picture, this entry keeps the firmware framebuffer.
     simpledrm.configuration = {
       n1x.nvidiaDisplay = false;
       environment.etc."anvesana-boot-entry".text = "simpledrm\n";
+      isoImage.appendToMenuLabel = lib.mkForce " - simpledrm (no nvidia-drm display)";
     };
   } // lib.optionalAttrs (acpiOverride != "") {
     sspm.configuration = {
       boot.initrd.prepend = [ "${builtins.path { path = acpiOverride; name = "acpi-override.cpio"; }}" ];
       environment.etc."anvesana-boot-entry".text = "sspm\n";
+      isoImage.appendToMenuLabel = lib.mkForce " - sspm (ACPI override, SSPM exposed)";
     };
   };
   environment.etc."anvesana-boot-entry".text = lib.mkDefault "default\n";
+  isoImage.appendToMenuLabel = lib.mkDefault " - default";
 
   # ------------------------------------------------------------------ data drive
   fileSystems."/mnt/sparkdata" = {
@@ -81,7 +95,9 @@ in
   };
   environment.systemPackages = with pkgs; [
     bench python llamaCpp uv
-    pciutils usbutils dmidecode acpica-tools lshw nvtopPackages.nvidia
+    # No nvtop: nvtopPackages.nvidia builds against the unfree CUDA toolkit (cuda-merged).
+    # nvidia-smi comes with the driver, and bench reads NVML directly.
+    pciutils usbutils dmidecode acpica-tools lshw
     git tmux htop iw ethtool exfatprogs
   ];
 
