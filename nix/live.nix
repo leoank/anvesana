@@ -51,6 +51,23 @@ in
   networking.hostName = "bbaum-pc-7";   # matches machines/bbaum-pc-7.toml
   boot.supportedFilesystems = lib.mkForce [ "vfat" "exfat" "ext4" "iso9660" "squashfs" "overlay" ];
   boot.kernelParams = [ "console=tty0" "loglevel=7" ];
+  # A live image with no secrets: let the initrd's emergency shell open without a password, so a
+  # failed boot (e.g. USB controllers not probing, 2026-11-06) can be inspected with dmesg.
+  boot.initrd.systemd.emergencyAccess = true;
+  # Without power_wrap neither USB nor the I2C keyboard works, so the shell cannot be used:
+  # on emergency, print the kernel lines that explain it to the console, for a photo.
+  boot.initrd.systemd.initrdBin = [ pkgs.gnugrep ];   # dmesg: the initrd's util-linux-minimal
+  boot.initrd.systemd.services.anvesana-boot-diag = {
+    description = "Print power_wrap / USB probe messages to the console";
+    wantedBy = [ "emergency.target" ];
+    unitConfig.DefaultDependencies = false;
+    serviceConfig = {
+      Type = "oneshot";
+      StandardOutput = "tty";
+      TTYPath = "/dev/console";
+      ExecStart = "/bin/sh -c \"sleep 2; echo; echo '=== anvesana boot diagnostics ==='; dmesg | grep -iE 'pwrap|power_wrap|power wrap|NVDA6210|PEPD|DPM|sspm|scmi|xhci|ANV_SPARK' | grep -v 'Not find power wrap' | tail -n 40; echo '=== end ==='\"";
+    };
+  };
 
   # ------------------------------------------------------------------ boot entries
   specialisation = {
