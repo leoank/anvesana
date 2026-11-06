@@ -1,0 +1,43 @@
+{
+  "label": "wsl-npcf-on-boost-ac-vllm",
+  "time": "2026-11-06T05:05:22",
+  "url": "http://127.0.0.1:8000",
+  "model": "openai/gpt-oss-20b",
+  "clients": 8,
+  "tokens": 256,
+  "tok_per_s_median": 301.81,
+  "rounds": [
+    {
+      "round": 0,
+      "wall_s": 7.152,
+      "completion_tokens": 2048,
+      "tok_per_s": 286.36,
+      "avg_power_w": 29.57967741935484,
+      "avg_sm_clock_mhz": 2230.2580645161293
+    },
+    {
+      "round": 1,
+      "wall_s": 6.786,
+      "completion_tokens": 2048,
+      "tok_per_s": 301.81,
+      "avg_power_w": 27.180344827586207,
+      "avg_sm_clock_mhz": 2055.793103448276
+    },
+    {
+      "round": 2,
+      "wall_s": 6.788,
+      "completion_tokens": 2048,
+      "tok_per_s": 301.72,
+      "avg_power_w": 27.49206896551724,
+      "avg_sm_clock_mhz": 2059.8275862068967
+    },
+    {
+      "round": 3,
+      "wall_s": 6.771,
+      "completion_tokens": 2048,
+      "tok_per_s": 302.45,
+      "avg_power_w": 27.95655172413793,
+      "avg_sm_clock_mhz": 2049.862068965517
+    }
+  ]
+}

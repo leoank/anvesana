@@ -1,0 +1,834 @@
+{
+  "schema_version": 1,
+  "run_id": "bbaum-pc-7_2026-11-06_022014_windows_win-npcf-on-balanced-compute-dc",
+  "machine": {
+    "id": "bbaum-pc-7",
+    "description": "MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.",
+    "hostname": "bbaum-pc-7",
+    "profile": "machines\\bbaum-pc-7.toml"
+  },
+  "started_at": "2026-11-06T02:20:14+00:00",
+  "finished_at": "2026-11-06T02:31:35+00:00",
+  "duration_s": 680,
+  "status": "complete",
+  "settings": {
+    "tag": "win-npcf-on-balanced-compute-dc",
+    "duration_s": 30,
+    "cooldown_s": 15,
+    "idle_s": 10,
+    "only": "gpu,tensor,cublaslt,tensorrt_rtx",
+    "skip": null,
+    "benchmarks": [
+      {
+        "id": "gpu",
+        "module": "gpu",
+        "args": {},
+        "version": 1,
+        "status": "ok",
+        "exit_code": 0,
+        "elapsed_s": 82.5,
+        "metric_count": 9
+      },
+      {
+        "id": "tensor",
+        "module": "tensor",
+        "args": {},
+        "version": 1,
+        "status": "ok",
+        "exit_code": 0,
+        "elapsed_s": 106.5,
+        "metric_count": 36
+      },
+      {
+        "id": "cublaslt",
+        "module": "cublaslt",
+        "args": {},
+        "version": 1,
+        "status": "ok",
+        "exit_code": 0,
+        "elapsed_s": 197.9,
+        "metric_count": 24
+      },
+      {
+        "id": "tensorrt_rtx",
+        "module": "tensorrt",
+        "args": {
+          "backend": "rtx"
+        },
+        "version": 1,
+        "status": "ok",
+        "exit_code": 0,
+        "elapsed_s": 225.9,
+        "metric_count": 24
+      }
+    ],
+    "framework_version": "0.4.0",
+    "git_commit": "7ff4b32905825c9b929a74af4a2d281a4f3ad67c",
+    "git_dirty": false,
+    "command": "anvesana run --only gpu,tensor,cublaslt,tensorrt_rtx --tag win-npcf-on-balanced-compute-dc"
+  },
+  "environment": {
+    "os": "windows",
+    "hostname": "bbaum-pc-7",
+    "platform": "Windows-11-10.0.28000-SP0",
+    "kernel": "10.0.28000",
+    "machine": "ARM64",
+    "python": "3.12.16",
+    "cpu": "NVIDIA RTX Spark N1X (6144-core GPU, 20-core CPU)",
+    "logical_cpus": 20,
+    "physical_cpus": 20,
+    "ram_gb": 32.75,
+    "bios": "Insyde G2621NMS.10B (09/30/2026)",
+    "system_product": "Micro-Star International Co., Ltd. Prestige N16 Flip AI+ C1XMT",
+    "power_profile": "mode=Balanced, plan=Balanced, energy_saver=off, msi=Balanced (shift 2)",
+    "on_ac_power": false,
+    "libraries": {
+      "cuda-bindings": "13.4.4",
+      "nvidia-cublas": "13.8.0.4",
+      "nvidia-cuda-nvrtc": "13.4.92",
+      "tensorrt-rtx": "1.7.1.116",
+      "numpy": "2.5.4"
+    },
+    "gpu": {
+      "name": "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)",
+      "compute_capability": "12.1",
+      "sm_count": 48,
+      "total_mem_gb": 118.63,
+      "driver_version": 13050
+    },
+    "nvrtc": "13.4",
+    "nvidia_driver": "621.01",
+    "gpu_power_limit_w": null,
+    "gpu_max_sm_clock_mhz": 3003,
+    "gpu_mem_total_gb": 103.08
+  },
+  "preflight": [
+    "running on battery"
+  ],
+  "phases": [
+    {
+      "phase": "idle",
+      "start_s": 0.0,
+      "end_s": 10.0
+    },
+    {
+      "phase": "gpu",
+      "start_s": 10.0,
+      "end_s": 92.47,
+      "exit_code": 0
+    },
+    {
+      "phase": "cooldown",
+      "start_s": 92.48,
+      "end_s": 107.48
+    },
+    {
+      "phase": "tensor",
+      "start_s": 107.48,
+      "end_s": 213.99,
+      "exit_code": 0
+    },
+    {
+      "phase": "cooldown",
+      "start_s": 213.99,
+      "end_s": 228.99
+    },
+    {
+      "phase": "cublaslt",
+      "start_s": 229.0,
+      "end_s": 426.88,
+      "exit_code": 0
+    },
+    {
+      "phase": "cooldown",
+      "start_s": 426.89,
+      "end_s": 441.89
+    },
+    {
+      "phase": "tensorrt_rtx",
+      "start_s": 441.89,
+      "end_s": 667.77,
+      "exit_code": 0
+    },
+    {
+      "phase": "cooldown_final",
+      "start_s": 667.78,
+      "end_s": 677.78
+    }
+  ],
+  "phase_telemetry": {
+    "_all": {
+      "samples": 677,
+      "avg_gpu_power_w": 30.81,
+      "peak_gpu_power_w": 55.86,
+      "avg_gpu_sm_clock_mhz": 1832.81,
+      "avg_gpu_clock_mhz": 1832.79,
+      "peak_gpu_temp_c": 65.0,
+      "peak_soc_temp_c": 73.7,
+      "peak_thermal_c": 73.7,
+      "avg_cpu_util_pct": 8.23,
+      "avg_cpu_freq_mhz": 823.07,
+      "peak_ram_used_gb": 15.77,
+      "gpu_energy_wh": 5.7956
+    },
+    "idle": {
+      "samples": 10,
+      "avg_gpu_power_w": 0.12,
+      "peak_gpu_power_w": 0.28,
+      "avg_gpu_sm_clock_mhz": 1376.5,
+      "avg_gpu_clock_mhz": 1376.5,
+      "peak_gpu_temp_c": 42.0,
+      "peak_soc_temp_c": 47.1,
+      "peak_thermal_c": 47.1,
+      "avg_cpu_util_pct": 5.17,
+      "avg_cpu_freq_mhz": 801.2,
+      "peak_ram_used_gb": 14.85,
+      "gpu_energy_wh": 0.0003
+    },
+    "gpu": {
+      "samples": 82,
+      "avg_gpu_power_w": 45.5,
+      "peak_gpu_power_w": 55.86,
+      "avg_gpu_sm_clock_mhz": 2438.2,
+      "avg_gpu_clock_mhz": 2438.2,
+      "peak_gpu_temp_c": 65.0,
+      "peak_soc_temp_c": 72.8,
+      "peak_thermal_c": 72.8,
+      "avg_cpu_util_pct": 5.92,
+      "avg_cpu_freq_mhz": 851.16,
+      "peak_ram_used_gb": 15.01,
+      "gpu_energy_wh": 1.0305
+    },
+    "cooldown": {
+      "samples": 45,
+      "avg_gpu_power_w": 2.18,
+      "peak_gpu_power_w": 44.27,
+      "avg_gpu_sm_clock_mhz": 460.69,
+      "avg_gpu_clock_mhz": 460.69,
+      "peak_gpu_temp_c": 65.0,
+      "peak_soc_temp_c": 71.0,
+      "peak_thermal_c": 71.0,
+      "avg_cpu_util_pct": 4.37,
+      "avg_cpu_freq_mhz": 806.91,
+      "peak_ram_used_gb": 14.86,
+      "gpu_energy_wh": 0.0156
+    },
+    "tensor": {
+      "samples": 107,
+      "avg_gpu_power_w": 45.05,
+      "peak_gpu_power_w": 54.96,
+      "avg_gpu_sm_clock_mhz": 2399.07,
+      "avg_gpu_clock_mhz": 2399.07,
+      "peak_gpu_temp_c": 65.0,
+      "peak_soc_temp_c": 73.7,
+      "peak_thermal_c": 73.7,
+      "avg_cpu_util_pct": 6.23,
+      "avg_cpu_freq_mhz": 817.27,
+      "peak_ram_used_gb": 15.07,
+      "gpu_energy_wh": 1.3332
+    },
+    "cublaslt": {
+      "samples": 198,
+      "avg_gpu_power_w": 34.1,
+      "peak_gpu_power_w": 41.15,
+      "avg_gpu_sm_clock_mhz": 1503.04,
+      "avg_gpu_clock_mhz": 1502.97,
+      "peak_gpu_temp_c": 65.0,
+      "peak_soc_temp_c": 71.2,
+      "peak_thermal_c": 71.2,
+      "avg_cpu_util_pct": 8.38,
+      "avg_cpu_freq_mhz": 818.75,
+      "peak_ram_used_gb": 15.77,
+      "gpu_energy_wh": 1.8721
+    },
+    "tensorrt_rtx": {
+      "samples": 225,
+      "avg_gpu_power_w": 24.12,
+      "peak_gpu_power_w": 30.37,
+      "avg_gpu_sm_clock_mhz": 1972.72,
+      "avg_gpu_clock_mhz": 1972.72,
+      "peak_gpu_temp_c": 63.0,
+      "peak_soc_temp_c": 67.7,
+      "peak_thermal_c": 67.7,
+      "avg_cpu_util_pct": 10.95,
+      "avg_cpu_freq_mhz": 824.09,
+      "peak_ram_used_gb": 15.61,
+      "gpu_energy_wh": 1.5046
+    },
+    "cooldown_final": {
+      "samples": 10,
+      "avg_gpu_power_w": 2.6,
+      "peak_gpu_power_w": 23.47,
+      "avg_gpu_sm_clock_mhz": 822.1,
+      "avg_gpu_clock_mhz": 822.1,
+      "peak_gpu_temp_c": 63.0,
+      "peak_soc_temp_c": 66.1,
+      "peak_thermal_c": 66.1,
+      "avg_cpu_util_pct": 5.05,
+      "avg_cpu_freq_mhz": 812.3,
+      "peak_ram_used_gb": 14.71,
+      "gpu_energy_wh": 0.004
+    }
+  },
+  "metrics": {
+    "gpu.mem_copy_bandwidth": {
+      "value": 252.34991081408413,
+      "unit": "GB/s",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "gpu.fp32_fma": {
+      "value": 27.998401255292418,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "gpu.fp32_fma.avg_power": {
+      "value": 46.19703832752613,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "gpu.fp32_fma.efficiency": {
+      "value": 0.6060648532659246,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "gpu.fp32_fma.avg_sm_clock": {
+      "value": 2389.9163763066204,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "gpu.fp16_mma_legacy": {
+      "value": 122.0558226760866,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "gpu.fp16_mma_legacy.avg_power": {
+      "value": 45.75236363636363,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "gpu.fp16_mma_legacy.efficiency": {
+      "value": 2.6677490073775676,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "gpu.fp16_mma_legacy.avg_sm_clock": {
+      "value": 2516.3142857142857,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16": {
+      "value": 121.15142583664863,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16.avg_power": {
+      "value": 47.041958762886594,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.fp16.efficiency": {
+      "value": 2.5753907580104882,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16.avg_sm_clock": {
+      "value": 2478.773195876289,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16_f16acc": {
+      "value": 124.74551833619844,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16_f16acc.avg_power": {
+      "value": 46.64926315789474,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.fp16_f16acc.efficiency": {
+      "value": 2.674115514193004,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16_f16acc.avg_sm_clock": {
+      "value": 2546.705263157895,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.bf16": {
+      "value": 124.25247399835276,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.bf16.avg_power": {
+      "value": 46.4997894736842,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.bf16.efficiency": {
+      "value": 2.6721083128488443,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.bf16.avg_sm_clock": {
+      "value": 2536.315789473684,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp8": {
+      "value": 236.01583725414636,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp8.avg_power": {
+      "value": 45.15938144329897,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.fp8.efficiency": {
+      "value": 5.226285872637165,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp8.avg_sm_clock": {
+      "value": 2409.1649484536083,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.nvfp4": {
+      "value": 465.1516069500645,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.nvfp4.avg_power": {
+      "value": 45.395,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.nvfp4.efficiency": {
+      "value": 10.246758606676163,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.nvfp4.avg_sm_clock": {
+      "value": 2373.561224489796,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.mxfp4": {
+      "value": 467.26975641293194,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.mxfp4.avg_power": {
+      "value": 45.00329896907216,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.mxfp4.efficiency": {
+      "value": 10.383011181781496,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.mxfp4.avg_sm_clock": {
+      "value": 2383.443298969072,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16_sparse": {
+      "value": 235.27676788956512,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16_sparse.avg_power": {
+      "value": 45.77340206185568,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.fp16_sparse.efficiency": {
+      "value": 5.140032361405537,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp16_sparse.avg_sm_clock": {
+      "value": 2400.5257731958764,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp8_sparse": {
+      "value": 461.78507346880235,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp8_sparse.avg_power": {
+      "value": 45.3559793814433,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.fp8_sparse.efficiency": {
+      "value": 10.18134940015725,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.fp8_sparse.avg_sm_clock": {
+      "value": 2356.216494845361,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.nvfp4_sparse": {
+      "value": 903.7596551196502,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.nvfp4_sparse.avg_power": {
+      "value": 45.11494845360824,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensor.nvfp4_sparse.efficiency": {
+      "value": 20.03237698584511,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensor.nvfp4_sparse.avg_sm_clock": {
+      "value": 2312.814432989691,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp32": {
+      "value": 11.93399829112757,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp32.avg_power": {
+      "value": 39.519594017094015,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "cublaslt.fp32.efficiency": {
+      "value": 0.30197674313065,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp32.avg_sm_clock": {
+      "value": 1662.1175213675215,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.tf32": {
+      "value": 37.93131223408847,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.tf32.avg_power": {
+      "value": 34.42078767123288,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "cublaslt.tf32.efficiency": {
+      "value": 1.1019885017270976,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.tf32.avg_sm_clock": {
+      "value": 1631.7157534246576,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp16": {
+      "value": 59.1287312423043,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp16.avg_power": {
+      "value": 31.892161016949153,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "cublaslt.fp16.efficiency": {
+      "value": 1.8540208426415574,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp16.avg_sm_clock": {
+      "value": 1320.3898305084747,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.bf16": {
+      "value": 58.421963658415336,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.bf16.avg_power": {
+      "value": 31.09076595744681,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "cublaslt.bf16.efficiency": {
+      "value": 1.8790776572817822,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.bf16.avg_sm_clock": {
+      "value": 1296.4382978723404,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp8": {
+      "value": 125.489714554935,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp8.avg_power": {
+      "value": 35.12650684931507,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "cublaslt.fp8.efficiency": {
+      "value": 3.5725076533587035,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.fp8.avg_sm_clock": {
+      "value": 1442.650684931507,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.nvfp4": {
+      "value": 233.4529287586939,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.nvfp4.avg_power": {
+      "value": 32.73111111111111,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "cublaslt.nvfp4.efficiency": {
+      "value": 7.1324474126832955,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "cublaslt.nvfp4.avg_sm_clock": {
+      "value": 1327.7521367521367,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16": {
+      "value": 27.876150912945207,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16.avg_power": {
+      "value": 26.27004830917874,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16.efficiency": {
+      "value": 1.0611381671195974,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16.avg_sm_clock": {
+      "value": 2060.8115942028985,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.bf16": {
+      "value": 27.61001334605749,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.bf16.avg_power": {
+      "value": 24.213525179856116,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensorrt_rtx.bf16.efficiency": {
+      "value": 1.1402723536111545,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.bf16.avg_sm_clock": {
+      "value": 1999.4796163069545,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8": {
+      "value": 60.81026300295159,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8.avg_power": {
+      "value": 26.307672955974844,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8.efficiency": {
+      "value": 2.3115029255805277,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8.avg_sm_clock": {
+      "value": 1694.8867924528302,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.nvfp4": {
+      "value": 25.775961535060414,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.nvfp4.avg_power": {
+      "value": 25.068195121951216,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensorrt_rtx.nvfp4.efficiency": {
+      "value": 1.028233640661646,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.nvfp4.avg_sm_clock": {
+      "value": 2044.3560975609755,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16_sparse": {
+      "value": 27.846785152343998,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16_sparse.avg_power": {
+      "value": 23.99195652173913,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16_sparse.efficiency": {
+      "value": 1.160671707916443,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp16_sparse.avg_sm_clock": {
+      "value": 2058.24154589372,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8_sparse": {
+      "value": 61.34263331615584,
+      "unit": "TFLOPS",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8_sparse.avg_power": {
+      "value": 26.14177215189873,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8_sparse.efficiency": {
+      "value": 2.3465369126362154,
+      "unit": "TFLOPS/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "tensorrt_rtx.fp8_sparse.avg_sm_clock": {
+      "value": 1820.0443037974683,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    }
+  },
+  "failures": []
+}

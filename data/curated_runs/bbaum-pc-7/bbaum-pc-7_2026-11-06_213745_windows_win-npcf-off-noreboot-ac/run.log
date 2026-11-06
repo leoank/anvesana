@@ -1,0 +1,46 @@
+================================================================
+ Benchmark run bbaum-pc-7_2026-11-06_213745_windows_win-npcf-off-noreboot-ac
+ Machine : bbaum-pc-7 - MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.
+ Store   : C:\Users\<user>\anvesana-results\bbaum-pc-7\bbaum-pc-7_2026-11-06_213745_windows_win-npcf-off-noreboot-ac
+ Plan    : llm
+ Settings: 30s per sustained test, 15s cooldown
+================================================================
+
+[idle] 10s baseline...
+
+[1/1] llm
+================================================================
+ LLM inference - llama.cpp b12119
+ Models: gpt-oss-20b in D:\models
+ pp512 / tg128, 5 reps, flash attention, mmap off
+================================================================
+
+gpt-oss-20b: prefill pp512 ...
+  -> gpt-oss-20b pp512               :   5,463.58 tok/s  +/- 213.24 [11.5 W avg, 2233 MHz SM, 50 C peak]
+
+gpt-oss-20b: decode tg128 ...
+  -> gpt-oss-20b tg128               :      89.41 tok/s  +/- 1.02 [47.0 W avg, 2439 MHz SM, 57 C peak]
+
+================ LLM inference =================================
+ llm.gpt_oss_20b_pp512                            5,463.58 tok/s
+ llm.gpt_oss_20b_pp512.avg_power                     11.46 W
+ llm.gpt_oss_20b_pp512.efficiency                   476.75 tok/s/W
+ llm.gpt_oss_20b_pp512.avg_sm_clock               2,233.45 MHz
+ llm.gpt_oss_20b_pp512.throttle_reasons           1,024.00 NVML mask
+ llm.gpt_oss_20b_tg128                               89.41 tok/s
+ llm.gpt_oss_20b_tg128.avg_power                     46.99 W
+ llm.gpt_oss_20b_tg128.efficiency                     1.90 tok/s/W
+ llm.gpt_oss_20b_tg128.avg_sm_clock               2,439.49 MHz
+ llm.gpt_oss_20b_tg128.throttle_reasons           1,024.00 NVML mask
+================================================================
+
+[cooldown] 10s thermal descent...
+
+================================================================
+ Results
+================================================================
+ llm.gpt_oss_20b_pp512                        5,463.58 tok/s
+ llm.gpt_oss_20b_tg128                           89.41 tok/s
+
+ Status: complete
+ Saved : C:\Users\<user>\anvesana-results\bbaum-pc-7\bbaum-pc-7_2026-11-06_213745_windows_win-npcf-off-noreboot-ac\run.json

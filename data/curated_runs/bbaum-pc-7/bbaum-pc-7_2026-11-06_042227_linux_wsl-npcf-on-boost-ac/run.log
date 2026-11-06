@@ -1,0 +1,64 @@
+================================================================
+ Benchmark run bbaum-pc-7_2026-11-06_042227_linux_wsl-npcf-on-boost-ac
+ Machine : bbaum-pc-7 - MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.
+ Store   : /home/<user>/anvesana-results/bbaum-pc-7/bbaum-pc-7_2026-11-06_042227_linux_wsl-npcf-on-boost-ac
+ Plan    : llm
+ Settings: 30s per sustained test, 15s cooldown
+================================================================
+
+[idle] 10s baseline...
+
+[1/1] llm
+================================================================
+ LLM inference - llama.cpp b12119
+ Models: gpt-oss-20b, gpt-oss-120b in /home/<user>/models
+ pp512 / tg128, 5 reps, flash attention, mmap off
+================================================================
+
+gpt-oss-20b: prefill pp512 ...
+  -> gpt-oss-20b pp512               :   5,313.45 tok/s  +/- 131.92 [20.3 W avg, 2450 MHz SM, 49 C peak]
+
+gpt-oss-20b: decode tg128 ...
+  -> gpt-oss-20b tg128               :      85.39 tok/s  +/- 1.45 [45.7 W avg, 2370 MHz SM, 57 C peak]
+
+gpt-oss-120b: prefill pp512 ...
+  -> gpt-oss-120b pp512              :   2,233.06 tok/s  +/- 3.54 [26.8 W avg, 2275 MHz SM, 59 C peak]
+
+gpt-oss-120b: decode tg128 ...
+  -> gpt-oss-120b tg128              :      61.52 tok/s  +/- 0.26 [46.7 W avg, 2236 MHz SM, 65 C peak]
+
+================ LLM inference =================================
+ llm.gpt_oss_20b_pp512                            5,313.45 tok/s
+ llm.gpt_oss_20b_pp512.avg_power                     20.25 W
+ llm.gpt_oss_20b_pp512.efficiency                   262.38 tok/s/W
+ llm.gpt_oss_20b_pp512.avg_sm_clock               2,450.31 MHz
+ llm.gpt_oss_20b_pp512.throttle_reasons           1,024.00 NVML mask
+ llm.gpt_oss_20b_tg128                               85.39 tok/s
+ llm.gpt_oss_20b_tg128.avg_power                     45.72 W
+ llm.gpt_oss_20b_tg128.efficiency                     1.87 tok/s/W
+ llm.gpt_oss_20b_tg128.avg_sm_clock               2,370.42 MHz
+ llm.gpt_oss_20b_tg128.throttle_reasons           1,028.00 NVML mask
+ llm.gpt_oss_120b_pp512                           2,233.06 tok/s
+ llm.gpt_oss_120b_pp512.avg_power                    26.78 W
+ llm.gpt_oss_120b_pp512.efficiency                   83.38 tok/s/W
+ llm.gpt_oss_120b_pp512.avg_sm_clock              2,275.17 MHz
+ llm.gpt_oss_120b_pp512.throttle_reasons          1,024.00 NVML mask
+ llm.gpt_oss_120b_tg128                              61.52 tok/s
+ llm.gpt_oss_120b_tg128.avg_power                    46.68 W
+ llm.gpt_oss_120b_tg128.efficiency                    1.32 tok/s/W
+ llm.gpt_oss_120b_tg128.avg_sm_clock              2,236.24 MHz
+ llm.gpt_oss_120b_tg128.throttle_reasons          1,028.00 NVML mask
+================================================================
+
+[cooldown] 10s thermal descent...
+
+================================================================
+ Results
+================================================================
+ llm.gpt_oss_20b_pp512                        5,313.45 tok/s
+ llm.gpt_oss_20b_tg128                           85.39 tok/s
+ llm.gpt_oss_120b_pp512                       2,233.06 tok/s
+ llm.gpt_oss_120b_tg128                          61.52 tok/s
+
+ Status: complete
+ Saved : /home/<user>/anvesana-results/bbaum-pc-7/bbaum-pc-7_2026-11-06_042227_linux_wsl-npcf-on-boost-ac/run.json

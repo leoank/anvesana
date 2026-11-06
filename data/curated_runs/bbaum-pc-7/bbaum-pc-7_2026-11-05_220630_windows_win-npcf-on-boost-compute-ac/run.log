@@ -1,0 +1,195 @@
+================================================================
+ Benchmark run bbaum-pc-7_2026-11-05_220630_windows_win-npcf-on-boost-compute-ac
+ Machine : bbaum-pc-7 - MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.
+ Store   : C:\Users\<user>\anvesana-results\bbaum-pc-7\bbaum-pc-7_2026-11-05_220630_windows_win-npcf-on-boost-compute-ac
+ Plan    : gpu, tensor, cublaslt, tensorrt_rtx
+ Settings: 30s per sustained test, 15s cooldown
+================================================================
+
+[idle] 10s baseline...
+
+[1/4] gpu
+================================================================
+ NVIDIA RTX Spark - Blackwell GPU Compute Benchmark
+ Target duration: 30s per compute test
+================================================================
+
+[Hardware Detection]
+  GPU Model           : NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)
+  Compute Capability  : 12.1
+  Streaming Multiprocs: 48 SMs (~6144 CUDA cores)
+  Max SM Clock        : 3003 MHz
+  Total Memory        : 118.63 GB (unified)
+
+[1/3] Unified memory bandwidth (cuMemcpyDtoD, 512 MiB x 40 passes)...
+  -> Device copy bandwidth           :     251.73 GB/s
+
+[2/3] FP32 CUDA-core FMA (30s)...
+  -> Sustained FP32                  :      29.65 TFLOPS  [71.8 W avg, 2533 MHz SM, 75 C peak]
+
+[3/3] Legacy FP16 mma.sync m16n8k16, dependent chain (30s)...
+  -> Sustained FP16 MMA              :     123.34 TFLOPS  [55.9 W avg, 2541 MHz SM, 73 C peak]
+
+================ GPU Benchmark Summary =========================
+ gpu.mem_copy_bandwidth                             251.73 GB/s
+ gpu.fp32_fma                                        29.65 TFLOPS
+ gpu.fp32_fma.avg_power                              71.81 W
+ gpu.fp32_fma.efficiency                              0.41 TFLOPS/W
+ gpu.fp32_fma.avg_sm_clock                        2,533.41 MHz
+ gpu.fp16_mma_legacy                                123.34 TFLOPS
+ gpu.fp16_mma_legacy.avg_power                       55.86 W
+ gpu.fp16_mma_legacy.efficiency                       2.21 TFLOPS/W
+ gpu.fp16_mma_legacy.avg_sm_clock                 2,540.57 MHz
+================================================================
+
+[2/4] tensor
+================================================================
+ Tensor-core peak throughput (mma.sync microbenchmark)
+ NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU) | sm_121a | 48 SMs | 10s per precision
+================================================================
+
+[1/9] fp16
+  -> fp16                            :     125.30 TFLOPS  [62.9 W avg, 2559 MHz SM, 69 C peak]
+
+[2/9] fp16_f16acc
+  -> fp16_f16acc                     :     125.46 TFLOPS  [50.1 W avg, 2561 MHz SM, 68 C peak]
+
+[3/9] bf16
+  -> bf16                            :     125.46 TFLOPS  [52.1 W avg, 2561 MHz SM, 69 C peak]
+
+[4/9] fp8
+  -> fp8                             :     247.99 TFLOPS  [67.7 W avg, 2528 MHz SM, 74 C peak]
+
+[5/9] nvfp4
+  -> nvfp4                           :     495.51 TFLOPS  [74.0 W avg, 2528 MHz SM, 76 C peak]
+
+[6/9] mxfp4
+  -> mxfp4                           :     495.53 TFLOPS  [72.3 W avg, 2528 MHz SM, 77 C peak]
+
+[7/9] fp16_sparse
+  -> fp16_sparse                     :     247.85 TFLOPS  [71.5 W avg, 2528 MHz SM, 77 C peak]
+
+[8/9] fp8_sparse
+  -> fp8_sparse                      :     491.31 TFLOPS  [75.5 W avg, 2510 MHz SM, 78 C peak]
+
+[9/9] nvfp4_sparse
+  -> nvfp4_sparse                    :     974.62 TFLOPS  [75.8 W avg, 2493 MHz SM, 78 C peak]
+
+Peak: 974.6 TFLOPS (nvfp4_sparse) = 0.975 PFLOPS
+
+================ Tensor Peak Summary ===========================
+ tensor.fp16                                        125.30 TFLOPS
+ tensor.fp16_f16acc                                 125.46 TFLOPS
+ tensor.bf16                                        125.46 TFLOPS
+ tensor.fp8                                         247.99 TFLOPS
+ tensor.nvfp4                                       495.51 TFLOPS
+ tensor.mxfp4                                       495.53 TFLOPS
+ tensor.fp16_sparse                                 247.85 TFLOPS
+ tensor.fp8_sparse                                  491.31 TFLOPS
+ tensor.nvfp4_sparse                                974.62 TFLOPS
+================================================================
+
+[3/4] cublaslt
+================================================================
+ cuBLASLt GEMM throughput
+ cuBLASLt 130800 | M=N=K=8192 | 10s per precision
+================================================================
+
+[1/6] fp32: autotuning...
+  -> fp32                            :      14.65 TFLOPS  [67.8 W avg, 2062 MHz SM, 76 C peak]
+
+[2/6] tf32: autotuning...
+  -> tf32                            :      46.99 TFLOPS  [61.0 W avg, 2064 MHz SM, 76 C peak]
+
+[3/6] fp16: autotuning...
+  -> fp16                            :      85.31 TFLOPS  [61.4 W avg, 1963 MHz SM, 76 C peak]
+
+[4/6] bf16: autotuning...
+  -> bf16                            :      85.94 TFLOPS  [61.8 W avg, 1990 MHz SM, 76 C peak]
+
+[5/6] fp8: autotuning...
+  -> fp8                             :     169.08 TFLOPS  [63.5 W avg, 1995 MHz SM, 77 C peak]
+
+[6/6] nvfp4: autotuning...
+  -> nvfp4                           :     324.26 TFLOPS  [61.9 W avg, 1948 MHz SM, 76 C peak]
+
+================ cuBLASLt Summary ==============================
+ cublaslt.fp32                                       14.65 TFLOPS
+ cublaslt.tf32                                       46.99 TFLOPS
+ cublaslt.fp16                                       85.31 TFLOPS
+ cublaslt.bf16                                       85.94 TFLOPS
+ cublaslt.fp8                                       169.08 TFLOPS
+ cublaslt.nvfp4                                     324.26 TFLOPS
+================================================================
+
+[4/4] tensorrt_rtx
+================================================================
+ tensorrt_rtx linear-layer throughput
+ tensorrt_rtx 1.7.1.116 | M=N=K=8192 | 10s per precision
+================================================================
+
+[1/6] fp16: building engine...
+     built in 0.4s
+  -> fp16                            :      28.43 TFLOPS  [41.0 W avg, 2064 MHz SM, 71 C peak]
+
+[2/6] bf16: building engine...
+     built in 0.5s
+  -> bf16                            :      28.38 TFLOPS  [40.8 W avg, 2061 MHz SM, 71 C peak]
+
+[3/6] fp8: building engine...
+     built in 0.7s
+  -> fp8                             :      65.98 TFLOPS  [60.4 W avg, 2251 MHz SM, 75 C peak]
+
+[4/6] nvfp4: building engine...
+     built in 1.0s
+  -> nvfp4                           :      26.52 TFLOPS  [38.1 W avg, 2020 MHz SM, 71 C peak]
+
+[5/6] fp16_sparse: building engine...
+     built in 0.4s
+  -> fp16_sparse                     :      28.46 TFLOPS  [37.7 W avg, 2055 MHz SM, 70 C peak]
+
+[6/6] fp8_sparse: building engine...
+     built in 0.6s
+  -> fp8_sparse                      :      65.86 TFLOPS  [56.6 W avg, 2192 MHz SM, 74 C peak]
+
+================ tensorrt_rtx Summary ==========================
+ tensorrt_rtx.fp16                                   28.43 TFLOPS
+ tensorrt_rtx.bf16                                   28.38 TFLOPS
+ tensorrt_rtx.fp8                                    65.98 TFLOPS
+ tensorrt_rtx.nvfp4                                  26.52 TFLOPS
+ tensorrt_rtx.fp16_sparse                            28.46 TFLOPS
+ tensorrt_rtx.fp8_sparse                             65.86 TFLOPS
+================================================================
+
+[cooldown] 10s thermal descent...
+
+================================================================
+ Results
+================================================================
+ gpu.mem_copy_bandwidth                         251.73 GB/s
+ gpu.fp32_fma                                    29.65 TFLOPS
+ gpu.fp16_mma_legacy                            123.34 TFLOPS
+ tensor.fp16                                    125.30 TFLOPS  (100% of 125 advertised)
+ tensor.fp16_f16acc                             125.46 TFLOPS  (100% of 125 advertised)
+ tensor.bf16                                    125.46 TFLOPS  (100% of 125 advertised)
+ tensor.fp8                                     247.99 TFLOPS  (99% of 250 advertised)
+ tensor.nvfp4                                   495.51 TFLOPS  (99% of 500 advertised)
+ tensor.mxfp4                                   495.53 TFLOPS  (99% of 500 advertised)
+ tensor.fp16_sparse                             247.85 TFLOPS  (99% of 250 advertised)
+ tensor.fp8_sparse                              491.31 TFLOPS  (98% of 500 advertised)
+ tensor.nvfp4_sparse                            974.62 TFLOPS  (97% of 1000 advertised)
+ cublaslt.fp32                                   14.65 TFLOPS
+ cublaslt.tf32                                   46.99 TFLOPS
+ cublaslt.fp16                                   85.31 TFLOPS
+ cublaslt.bf16                                   85.94 TFLOPS
+ cublaslt.fp8                                   169.08 TFLOPS
+ cublaslt.nvfp4                                 324.26 TFLOPS
+ tensorrt_rtx.fp16                               28.43 TFLOPS
+ tensorrt_rtx.bf16                               28.38 TFLOPS
+ tensorrt_rtx.fp8                                65.98 TFLOPS
+ tensorrt_rtx.nvfp4                              26.52 TFLOPS
+ tensorrt_rtx.fp16_sparse                        28.46 TFLOPS
+ tensorrt_rtx.fp8_sparse                         65.86 TFLOPS
+
+ Status: complete
+ Saved : C:\Users\<user>\anvesana-results\bbaum-pc-7\bbaum-pc-7_2026-11-05_220630_windows_win-npcf-on-boost-compute-ac\run.json
