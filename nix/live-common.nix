@@ -92,7 +92,8 @@ in
     '';
   };
 
+  # NetworkManager turns on networking.wireless itself (wpa_supplicant under D-Bus control); forcing
+  # it off left NetworkManager unable to start wpa_supplicant: no Wi-Fi (laptop, 2026-11-07).
   networking.networkmanager.enable = true;
-  networking.wireless.enable = lib.mkForce false;
   system.stateVersion = "26.05";
 }
