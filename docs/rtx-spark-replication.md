@@ -110,6 +110,15 @@ ANVESANA_ACPI_OVERRIDE=$PWD/nix/local/acpi/acpi-override.cpio nix build --impure
 Write `result/iso/*.iso` to the boot USB (Rufus in DD mode, or `dd`). Format the second drive
 exFAT with the label `SPARKDATA`, holding `models/` (and optionally `ssh/authorized_keys`).
 
+- **Not Ventoy for `sspm`.** Ventoy adds its own initramfs to Linux ISOs, and the kernel then misses
+  the ACPI override at the start of the `sspm` initrd (SSPM stays hidden, so no USB). `osi` works
+  through Ventoy; Ventoy's GRUB2 mode applies the override but then cannot find `ANV_SPARK`.
+- **Check the hash after every copy.** Copies out of WSL through `/mnt/c` came out corrupted twice
+  (same size, a few bytes changed) on 2026-11-07; copying from `\\wsl.localhost\...` on the Windows
+  side, then reading the stick back, gave matching hashes.
+- **Without SSPM exposed Linux has no USB, I2C keyboard or touchpad** on this machine (the `default`
+  entry cannot boot from USB); see `data/boot-logs/`.
+
 ### 4. Native NixOS ([[EXP-20261104-ssfv1c]], [[EXP-20261104-ssfy1p]])
 
 Secure Boot off (after gate 2), boot the USB from the firmware boot menu, choose an entry:
