@@ -36,16 +36,16 @@ in `docs/n1x-bringup-log.md`.
 - [x] MSI power modes mapped to the EC shift-mode byte with the read-only admin probe (ADR-0008)
 - [x] Keyboard RGB protocol decoded and verified on hardware; `scripts/msi-mystic-light.py` (ADR-0009)
 - [x] Repo initialised as a yajna `project` notebook; architecture and decision records written
-- [ ] First Linux boot of bbaum-pc-7: `sudo bench inventory collect` on real sysfs (phase 3)
+- [x] First Linux boot of bbaum-pc-7: `sudo bench inventory collect` on real sysfs (phase 3); NixOS live, `osi` and `sspm` entries, 2026-11-07
 - [ ] Gap list `compare bbaum-pc-7@windows bbaum-pc-7@linux`, SoC controllers first (phase 4)
 - [ ] Benchmarks on Linux, including TensorRT (full) and CUTLASS; Linux baseline (phase 5)
 - [ ] Power modes, keyboard RGB and backlight from Linux (phase 6)
 - [ ] Linux userspace tool for the RGB controller over hidraw
 - [x] Replication setup for the "RTX Spark is 3x slower on Linux" report: `bench llm` (pinned llama.cpp b12119, GPT-OSS 20B/120B), power-condition sweeps, NixOS live image, ACPI hidden-device tool, journaled Windows state changes (ADR-0013 to 0016; docs/rtx-spark-replication.md)
-- [ ] Windows baseline with NVPCF on and off, AC and battery ([[EXP-20261104-ssfqvw]])
-- [ ] WSL2 llama.cpp and vLLM 8-client runs; WSL as the Nix build host ([[EXP-20261104-ssfs86]])
-- [ ] First build of the NixOS live image (fill the open-modules hash; check the boot menu)
-- [ ] Native NixOS runs, stock ACPI ([[EXP-20261104-ssfv1c]]), then with SSPM exposed ([[EXP-20261104-ssfy1p]])
+- [x] Windows baseline with NVPCF on and off, AC and battery ([[EXP-20261104-ssfqvw]])
+- [x] WSL2 llama.cpp and vLLM 8-client runs; WSL as the Nix build host ([[EXP-20261104-ssfs86]])
+- [x] First build of the NixOS live image (fill the open-modules hash; check the boot menu)
+- [x] Native NixOS runs, stock ACPI ([[EXP-20261104-ssfv1c]]), then with SSPM exposed ([[EXP-20261104-ssfy1p]]); stock ACPI cannot boot (no USB without SSPM), so `osi` and `sspm` were run
 - [ ] NPCF and hidden-device disassembly ([[EXP-20261104-ssfn9a]])
 - [x] nvidia-drm display with the ProArt fixes, and N1X hardware support as `nixosModules.n1x` (ADR-0017)
 - [ ] Installed NixOS as the daily driver on bbaum-pc-7: audio, keyboard backlight (Fn + F8), Wi-Fi, suspend; the ProArt audio and keyboard parts are ASUS-specific
@@ -59,9 +59,9 @@ in `docs/n1x-bringup-log.md`.
 - Which component does each ESRT "Device Firmware" GUID update?
 - Does Fn + F8 (keyboard backlight) work on Linux through the EC alone?
 - Where does the RGB controller report brightness (`02 b1` returned only its echo)?
-- Does Linux answer `_OSI("Windows 2022")` true, hiding SVP0, SSPM, HFRP, NH1X and NMAP? Is SSPM (NVDA8400) the non-Windows counterpart of NVPCF?
+- Does Linux answer `_OSI("Windows 2022")` true, hiding SVP0, SSPM, HFRP, NH1X and NMAP? Is SSPM (NVDA8400) the non-Windows counterpart of NVPCF? (2026-11-07: yes, it hides them; SSPM is the SCMI endpoint for the SoC's USB/I2C/PCIe power, not a GPU power table.)
 - BitLocker on C: is TPM+PIN with an existing recovery password (preflight 2026-11-05): a Secure Boot change would trigger recovery, so the key must be stored off the machine and BitLocker suspended first (ADR-0016). Is it already in the Microsoft account?
-- Is the GPU memory reservation (96 GB) a firmware carve-out that Linux cannot reclaim? CUDA on Windows sees 110.5 GiB; the ProArt saw 116 GiB on Linux.
+- Is the GPU memory reservation (96 GB) a firmware carve-out that Linux cannot reclaim? CUDA on Windows sees 110.5 GiB; the ProArt saw 116 GiB on Linux. (2026-11-07: on this MSI, yes: Linux sees 30.4 GB at 96 GB reserved, 120 GiB at 4 GB.)
 
 ## Design
 - One process per benchmark and a methodology `VERSION` per benchmark; health refuses to compare across versions.
@@ -79,12 +79,16 @@ in `docs/n1x-bringup-log.md`.
 - RGB commands are accepted while the backlight is off but show nothing; check Fn + F8 before concluding a lighting test failed.
 - A substring privacy filter leaked `OS_Product_Key`; match exact names (ADR-0004).
 - yajna 0.18.1's Windows build wrote CRLF pages that its validator rejected; 0.19.0 (native ARM64) writes LF, so the manual conversion is gone and only `.gitattributes` remains (ADR-0011, superseded by ADR-0012).
+- Without SSPM (NVDA8400) the NV-Kernels USB and I2C controllers do not probe: they are powered over SCMI through `power_wrap`, and SSPM is hidden from `_OSI("Windows 2022")`. A Linux image for this machine needs `acpi_osi="!Windows 2022"` or the SSPM DSDT override.
+- Ventoy injects its own initramfs ahead of the ISO's, so an initrd ACPI override never reaches the kernel; boot override images from a stick written directly.
+- ISO copies out of WSL through `/mnt/c` came out corrupted twice (same size, a few bytes changed); copy through `\\wsl.localhost` and check sha256 after every copy.
+- On the live image, mount data drives with `x-systemd.automount`: N1X USB enumerates after power_wrap/SSPM, later than a 10 s device timeout.
 
 ## Experiments
 One line per experiment after its link, what it asks and what came of it; `yajna validate`
 rejects a bare link here. Newest last.
-- [[EXP-20261104-ssfn9a]] Is NVPCF's power data really opaque, and which ACPI devices does the firmware hide from Linux? Five such devices found in the tables (SVP0, SSPM, HFRP, NH1X, NMAP).
-- [[EXP-20261104-ssfqvw]] Windows baseline: GPT-OSS decode speed and GPU clock on AC and battery, with NVPCF on and off
-- [[EXP-20261104-ssfs86]] Does WSL2 match native Windows for llama.cpp and for vLLM with 8 concurrent clients?
-- [[EXP-20261104-ssfv1c]] Native NixOS with stock ACPI: is the GPU clock locked on AC only, and how much memory does Linux get?
-- [[EXP-20261104-ssfy1p]] Does exposing the hidden SSPM (NVDA8400) device give Linux working GPU power management?
+- [[EXP-20261104-ssfn9a]] Is NVPCF's power data really opaque, and which ACPI devices does the firmware hide from Linux? Five such devices found in the tables (SVP0, SSPM, HFRP, NH1X, NMAP); all hidden from Linux by default, confirmed on hardware. NPCF tables not disassembled yet.
+- [[EXP-20261104-ssfqvw]] Windows baseline: GPT-OSS decode speed and GPU clock on AC and battery, with NVPCF on and off. 120B 63.5 tok/s on AC; disabling NPCF changes nothing.
+- [[EXP-20261104-ssfs86]] Does WSL2 match native Windows for llama.cpp and for vLLM with 8 concurrent clients? Yes (within 3 % for 120B); vLLM 302 tok/s with 8 clients.
+- [[EXP-20261104-ssfv1c]] Native NixOS with stock ACPI: is the GPU clock locked on AC only, and how much memory does Linux get? Stock ACPI does not boot; with SSPM exposed Linux decodes 7–12 % faster than Windows at 2.5 GHz, and gets only the non-reserved RAM.
+- [[EXP-20261104-ssfy1p]] Does exposing the hidden SSPM (NVDA8400) device give Linux working GPU power management? SSPM is what powers USB/I2C on Linux; with it alone Linux runs at full speed.

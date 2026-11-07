@@ -6,10 +6,10 @@ title: Restore point and model downloads to the data drive
 model: claude-opus-5-5
 harness: claude-code
 started: 2026-11-05T00:42+00:00
-finished: null
+finished: 2026-11-07T17:16+00:00
 created_entities: []
-edited_entities: [EXP-20261104-ssfqvw]
-outcome: pending          # done | failed | aborted | pending
+edited_entities: [EXP-20261104-ssfqvw, EXP-20261104-ssfs86, EXP-20261104-ssfv1c, EXP-20261104-ssfy1p, EXP-20261104-ssfn9a, PRJ-0001]
+outcome: done             # done | failed | aborted | pending
 created: 2026-11-05
 author: agent:claude
 ---
@@ -82,3 +82,34 @@ The GPU power budget follows the MSI mode (NVPCF level 60/80/100/120): GEMMs sca
 | Performance Boost | 53, 30 W, 1.21 GHz | 203, 28 W | 901, 46 W | 252 GB/s |
 
 On battery, GEMM power is capped at about 30–35 W in every mode except ECO, so Performance and Boost gain nothing over Balanced; on AC they reach 57–61 W. The ECO battery run came out slightly above the ECO AC run (46 vs 41 TFLOPS), probably because of temperature or ordering; this is not resolved. Decode is memory-bound, which is why the earlier LLM sweep was flat across modes.
+
+**2026-11-06 to 2026-11-07, the remaining replication runs** (details in the experiment pages'
+*Results* and the daily logs):
+- 120B on Windows (Boost): 63.5 tok/s on AC, 61.1 on battery. WSL matched Windows; vLLM in WSL
+  needed fixed memory flags and served 302 tok/s to 8 clients.
+- NVPCF disabled, live and across a reboot: no change in clock or tok/s (C4 not reproduced).
+- The NixOS live image was built in WSL (Nix 2.31, nixos-26.05). The first boots failed without
+  USB or keyboard: SSPM is hidden from Linux, and NV-Kernels powers USB and I2C through it. The
+  on-screen diagnostics found that, and then that Ventoy hid the `sspm` override. `osi` booted
+  from Ventoy; `sspm` booted from a stick written directly.
+- Linux sees only the non-reserved RAM: 120B ran out of memory at the 96 GB reservation and hung
+  the machine. Ank lowered the reservation to 4 GB; then NixOS `osi` and `sspm` both decoded 120B
+  at 65.6–65.7 tok/s on AC (Windows at 4 GB: 58.5) and 63.4–63.5 on battery (Windows: 57.2).
+- Committed runs: `data/curated_runs/` (user names scrubbed, inventories with ACPI tables kept out).
+
+**Proposed conclusions, for Ank to accept, edit or reject** (not written into the pages):
+- [[EXP-20261104-ssfqvw]]: negative for H1. NVPCF does not set the clocks llama.cpp sees on this
+  machine; disabling it changes nothing. Windows 120B decode 63.5 tok/s on AC matches the article.
+- [[EXP-20261104-ssfs86]]: positive. WSL matches Windows within a few percent.
+- [[EXP-20261104-ssfv1c]]: H1 negative, H2 positive. No AC clock lock; Linux is 7–12 % faster than
+  Windows on decode. The reservation is a carve-out Linux cannot use, so 120B needs it lowered.
+  The stock-ACPI condition cannot be run because Linux cannot boot without SSPM.
+- [[EXP-20261104-ssfy1p]]: SSPM is required for Linux to boot, not for GPU clocks; with it
+  exposed alone, Linux runs at full speed.
+- [[EXP-20261104-ssfn9a]]: H2 positive; H1 still open (NPCF not disassembled), so keep it active.
+- For the article: on bbaum-pc-7 none of C1, C2 or C4 reproduces; C5 and C6 do. The article's
+  13.9 tok/s fits a Linux boot that saw only the non-reserved RAM or ran partly off the GPU, but
+  that is a guess, not something measured here.
+
+Left on the machine: GPU reservation 4 GB, Secure Boot off, BitLocker resumed (it resumes on
+the next Windows boot). The boot stick now holds ISO a98d9973 written directly (Ventoy is gone).

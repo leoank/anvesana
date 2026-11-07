@@ -4,7 +4,7 @@ type: experiment
 schema_version: 1
 title: "Native NixOS with stock ACPI: is the GPU clock locked on AC only, and how much memory does Linux get?"
 project: PRJ-0001
-status: planned           # planned | active | paused | concluded | abandoned
+status: active            # planned | active | paused | concluded | abandoned
 outcome: null             # null | positive | negative | inconclusive | infra
 influenced_by: []
 created: 2026-11-04
@@ -43,6 +43,32 @@ seen by Linux and CUDA at each reservation; an inventory snapshot for the Linux 
 ## Runs
 One line per run after its link, what was tried and what it showed; `yajna validate`
 rejects a bare link here. Metric runs also land in results.tsv.
+
+## Results
+Added 2026-11-07 (agent:claude). Live image: NV-Kernels 7.0.14-1022, driver 615.78.08 (open).
+Boot details and console transcripts: `data/boot-logs/2026-11-06-nixos-default-no-usb.md`.
+
+- **The stock-ACPI condition cannot be run on this machine.** With the stock tables Linux has no
+  USB and no I2C (keyboard, touchpad): every xHCI and I2C controller is powered through the
+  `power_wrap` driver, which asks SSPM over SCMI, and SSPM (NVDA8400) is hidden from any OS that
+  claims `_OSI("Windows 2022")`, as Linux does. The boot stick is never found. The closest
+  conditions are the `osi` entry (`acpi_osi="!Windows 2022"`) and `sspm` ([[EXP-20261104-ssfy1p]]).
+- H1 is not supported. `osi` entry, Performance Boost set from Windows, models on a USB drive:
+
+| NixOS `osi` | 20B AC | 20B battery | 120B AC | 120B battery |
+|---|---|---|---|---|
+| 96 GB reservation | 5,311 / 92.4 | | out of memory | |
+| 4 GB reservation | 5,355 / 93.4 | 4,779 / 89.2 | 2,133 / 65.7 | 1,887 / 63.4 |
+
+  Decode ran at 2.52–2.56 GHz and 52 W on AC, 1.89–1.90 GHz and 22 W on battery, below 60 °C.
+  Linux decodes 7–12 % faster than Windows at the same reservation; no 780 MHz lock on AC.
+- H2 holds: with 96 GB reserved Linux sees 30.36 GB of RAM (inventory 2026-11-07_013207_linux),
+  and loading the 59 GiB 120B model ran the machine out of memory (it hung). With the reservation
+  lowered to 4 GB in the NVIDIA app, Linux sees 128.9 GB (120 GiB) and runs 120B. CUDA memory
+  was not read separately; llama.cpp's allocation of 120B shows it reaches beyond 59 GiB.
+- `nvidia-drm` drives the console (`fb0: nvidia-drmdrmfb`); there is no desktop on this image.
+- Each NixOS run took about 80 minutes, almost all model loading from the USB drive; that does not
+  enter tok/s.
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.
