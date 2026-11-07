@@ -15,6 +15,7 @@
 #                  that image from a stick written directly, not Ventoy), else acpi_osi="!Windows 2022"
 #   osi            acpi_osi="!Windows 2022", all five hidden devices (only in an override build)
 #   safe-graphics  as default, but the firmware framebuffer (simpledrm) instead of nvidia-drm
+#   no-vblank      as default, without nvidia_drm vblank=1 (A/B for the GNOME lag)
 #   serial         as default, with the console also on ttyAMA0 (QEMU, or a serial adapter)
 # Specialisations inherit the default entry's settings, so each adds only its difference.
 { config, lib, pkgs, modulesPath, ... }:
@@ -73,6 +74,13 @@ in
       n1x.nvidiaDisplay = false;
       environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-safe-graphics\n";
       isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, safe graphics (simpledrm)";
+    };
+    # A/B for the GNOME lag on bbaum-pc-7 (2026-11-07): the same as default without the ProArt
+    # tuple's `nvidia_drm vblank=1`, in case every page flip waits on a vblank that never comes.
+    no-vblank.configuration = {
+      n1x.nvidiaVblank = false;
+      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-no-vblank\n";
+      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, nvidia_drm without vblank=1";
     };
     serial.configuration = {
       # The last console= gets /dev/console, so systemd's status lines reach the serial port too;

@@ -58,6 +58,11 @@ in
       default = true;
       description = "Drive the display with nvidia-drm (modeset, fbdev). False keeps simpledrm.";
     };
+    nvidiaVblank = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Pass the ProArt tuple's `nvidia_drm vblank=1` (only with nvidiaDisplay).";
+    };
   };
 
   config = {
@@ -97,7 +102,7 @@ in
     };
     # The ProArt's qualified tuple also sets vblank=1 (h7607a-nvidia.conf); an
     # unknown parameter is logged and ignored, so it is harmless if 615 lacks it.
-    boot.extraModprobeConfig = lib.mkIf cfg.nvidiaDisplay "options nvidia_drm vblank=1";
+    boot.extraModprobeConfig = lib.mkIf (cfg.nvidiaDisplay && cfg.nvidiaVblank) "options nvidia_drm vblank=1";
 
     # ---------------------------------------------------------------- power
     systemd.services.n1x-cppc-init = {
