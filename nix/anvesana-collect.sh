@@ -33,7 +33,10 @@ entry=$(cat /etc/anvesana-boot-entry 2>/dev/null || echo unknown)
 bootid=$(tr -d '-' </proc/sys/kernel/random/boot_id | cut -c1-8)
 bootstart=$(date -d "@$(awk '/^btime/{print $2}' /proc/stat)" +%Y-%m-%d_%H%M%S 2>/dev/null || echo unknown)
 host=$(cat /proc/sys/kernel/hostname)
-dir="$root/bootlogs/$host/${bootstart}_${entry//[^A-Za-z0-9_-]/_}_${bootid}"
+# One folder per boot: the boot start derived from /proc/stat moves when the clock is adjusted
+# (NTP, RTC), so reuse the folder that already carries this boot's ID.
+existing=$(ls -d "$root/bootlogs/$host/"*_"$bootid" 2>/dev/null | head -1)
+dir=${existing:-"$root/bootlogs/$host/${bootstart}_${entry//[^A-Za-z0-9_-]/_}_${bootid}"}
 mkdir -p "$dir" || { echo "anvesana-collect: cannot write $dir" >&2; exit 1; }
 
 now() { date +%H:%M:%S; }
@@ -57,6 +60,9 @@ cat /proc/cmdline >"$dir/cmdline.txt"
   for p in $(pgrep -x gnome-shell; pgrep -x .gnome-shell-wr; pgrep -x Xwayland); do
     echo "--- graphics libraries in $(cat /proc/"$p"/comm 2>/dev/null) ($p)"
     grep -oE '[^/ ]*(nvidia|gallium|swrast|llvmpipe|mesa|EGL|GLX|gbm|vulkan)[^/ ]*\.so[^ ]*' /proc/"$p"/maps 2>/dev/null | sort -u | tr '\n' ' '; echo
+    # both stacks are usually mapped; the open device nodes say which one draws
+    echo "--- devices open in $(cat /proc/"$p"/comm 2>/dev/null) ($p)"
+    ls -l /proc/"$p"/fd 2>/dev/null | grep -oE '/dev/(nvidia[a-z0-9-]*|dri/[a-zA-Z0-9]+)' | sort | uniq -c | tr '\n' ' '; echo
   done; echo; } >>"$dir/load.txt" 2>&1
 
 [ "$mode" = journal ] && { sync; echo "anvesana-collect: journal -> $dir"; exit 0; }
@@ -108,9 +114,9 @@ check "Vulkan" "$(grep -q 'deviceName' "$s/gpu-vulkan.txt" && echo OK || echo MI
   "$(grep -m1 deviceName "$s/gpu-vulkan.txt" | sed 's/.*= //')"
 check "OpenGL renderer" INFO "$(grep -m1 'OpenGL renderer' "$s/gpu-glx.txt" | sed 's/.*: //')"
 check "EGL (Wayland)" INFO "$(grep -m1 -iE 'OpenGL (core profile )?renderer' "$s/gpu-egl.txt" | sed 's/.*: //')"
-shell_libs=$(tail -n 40 "$dir/load.txt" | grep -A1 'graphics libraries in .*gnome-shell' | tail -1)
-check "compositor GL driver" "$(printf '%s' "$shell_libs" | grep -q 'nvidia' && echo OK || echo INFO)" \
-  "$(printf '%s' "$shell_libs" | grep -oE 'libEGL_nvidia|libnvidia-eglcore|libgallium[^ ]*|swrast[^ ]*|llvmpipe[^ ]*' | sort -u | tr '\n' ' ')"
+shell_devs=$(tail -n 60 "$dir/load.txt" | grep -A1 'devices open in .*gnome-shell' | tail -1)
+check "compositor GPU" "$(printf '%s' "$shell_devs" | grep -q '/dev/nvidia[0-9]' && echo OK || echo INFO)" \
+  "${shell_devs:-gnome-shell not running} (/dev/nvidiaN = NVIDIA GL; only dri nodes = Mesa)"
 # KMS state: planes, framebuffer formats and modifiers, CRTC mode (debugfs)
 mountpoint -q /sys/kernel/debug || mount -t debugfs none /sys/kernel/debug 2>/dev/null
 for st in /sys/kernel/debug/dri/*/state; do echo "== $st"; cat "$st"; done >"$s/kms-state.txt" 2>&1
