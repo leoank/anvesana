@@ -53,3 +53,22 @@ on screen can be seen. Ank chose GNOME (touch, pen, tablet mode).
   ttyAMA0 (the kernel adds the SPCR console; the laptop has an SPCR table too).
 - ISO 2484c6ca (sspm default) copied to `C:\Users\<user>\anvesana-rtx-spark-desktop-2484c6ca.iso`,
   hash checked.
+- First laptop boots (ISO 2484c6ca, `sspm` entry, twice, 19:32 and 19:45): GNOME unusably laggy,
+  minutes from the login screen to the desktop; both ended in forced restarts. From the logs on
+  SPARKDATA (`bootlogs/bbaum-pc-7/2026-11-07_193219_sspm_1a8b13b8`, `..._194531_sspm_46431b2d`):
+  - Works: SSPM bound, GPU (nvidia-smi), eDP panel and `nvidia_0` backlight, keyboard
+    (MKB0001), touchpad (SYNA1513), touchscreen and pen (ELAN9024), Wi-Fi device (MT7925,
+    `wlP6s6`), Bluetooth `hci0`, four `/dev/video*`, battery, cppc_cpufreq, two ALSA cards
+    (NVIDIA HDA, mt8901-soundwire), `deep` listed in mem_sleep.
+  - Missing or broken: keyboard backlight LED, accelerometer and ambient light (only a proximity
+    IIO device), NetworkManager cannot start wpa_supplicant ("Failed to D-Bus activate").
+  - GNOME: the autologin session (uid 1000, Wayland) started at 19:32:42, 20 s after boot; mutter
+    reported `Created gbm renderer for /dev/dri/card1` (nvidia-drm), `Obtained a high priority
+    EGL context`, and `Device '/dev/dri/card1' prefers shadow buffer`. No flip timeouts, Xid or
+    stall messages in the kernel log. So the session was up long before the screen showed it.
+  - The collector's in-session probes (EGL/Vulkan/GLX renderer, audio sinks, sensor proxy) ran
+    with no user: `getent` is not on the script's PATH. Fixed; the collector now also records,
+    at every collection, top CPU users, `nvidia-smi dmon` for 5 s and the GL/EGL libraries mapped
+    into gnome-shell and Xwayland, plus the KMS debugfs state in full snapshots.
+  - ProArt comparison: same driver tuple and nvidia_drm options; its `libnvidia-rmapi-tegra`
+    fix is already in nixpkgs' nvidia-x11; it documents no desktop.
