@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "run_id": "bbaum-pc-7_2026-11-07_135245_linux_nixos-sspm-res4g-dc",
+  "machine": {
+    "id": "bbaum-pc-7",
+    "description": "MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.",
+    "hostname": "bbaum-pc-7",
+    "profile": "machines/bbaum-pc-7.toml"
+  },
+  "started_at": "2026-11-07T13:52:45+00:00",
+  "finished_at": "2026-11-07T15:11:55+00:00",
+  "duration_s": 4750,
+  "status": "complete",
+  "settings": {
+    "tag": "nixos-sspm-res4g-dc",
+    "duration_s": 30,
+    "cooldown_s": 15,
+    "idle_s": 10,
+    "only": "llm",
+    "skip": null,
+    "benchmarks": [
+      {
+        "id": "llm",
+        "module": "llm",
+        "args": {
+          "models": "gpt-oss-20b,gpt-oss-120b"
+        },
+        "version": 1,
+        "status": "ok",
+        "exit_code": 0,
+        "elapsed_s": 4727.7,
+        "metric_count": 20
+      }
+    ],
+    "framework_version": "0+unknown",
+    "command": "anvesana run --only llm --tag nixos-sspm-res4g-dc --set llm.models=gpt-oss-20b,gpt-oss-120b"
+  },
+  "environment": {
+    "os": "linux",
+    "hostname": "bbaum-pc-7",
+    "platform": "Linux-7.0.14-aarch64-with-glibc2.42",
+    "kernel": "7.0.14",
+    "machine": "aarch64",
+    "python": "3.12.15",
+    "cpu": "Prestige N16 Flip AI+ C1XMT",
+    "logical_cpus": 20,
+    "physical_cpus": 20,
+    "ram_gb": 128.9,
+    "bios": "Insyde G2621NMS.10B (09/30/2026)",
+    "system_product": "Micro-Star International Co., Ltd. Prestige N16 Flip AI+ C1XMT",
+    "power_profile": "governor=performance",
+    "on_ac_power": false,
+    "libraries": {
+      "numpy": "2.4.4"
+    },
+    "gpu_error": "No module named 'cuda'",
+    "nvidia_driver": "615.78.08",
+    "gpu_power_limit_w": null,
+    "gpu_max_sm_clock_mhz": 3003
+  },
+  "preflight": [
+    "running on battery"
+  ],
+  "phases": [
+    {
+      "phase": "idle",
+      "start_s": 0.0,
+      "end_s": 10.0
+    },
+    {
+      "phase": "llm",
+      "start_s": 10.0,
+      "end_s": 4737.72,
+      "exit_code": 0
+    },
+    {
+      "phase": "cooldown_final",
+      "start_s": 4737.72,
+      "end_s": 4747.72
+    }
+  ],
+  "phase_telemetry": {
+    "_all": {
+      "samples": 4746,
+      "avg_gpu_power_w": 0.36,
+      "peak_gpu_power_w": 22.72,
+      "avg_gpu_sm_clock_mhz": 2334.31,
+      "avg_gpu_clock_mhz": 2334.31,
+      "peak_gpu_temp_c": 53.0,
+      "peak_soc_temp_c": 58.4,
+      "peak_thermal_c": 58.4,
+      "avg_cpu_util_pct": 1.02,
+      "avg_cpu_freq_mhz": 3406.0,
+      "peak_ram_used_gb": 62.78,
+      "gpu_energy_wh": 0.4694
+    },
+    "idle": {
+      "samples": 10,
+      "avg_gpu_power_w": 0.03,
+      "peak_gpu_power_w": 0.04,
+      "avg_gpu_sm_clock_mhz": 252.8,
+      "avg_gpu_clock_mhz": 252.8,
+      "peak_gpu_temp_c": 43.0,
+      "peak_soc_temp_c": 44.9,
+      "peak_thermal_c": 44.9,
+      "avg_cpu_util_pct": 0.87,
+      "avg_cpu_freq_mhz": 3406.0,
+      "peak_ram_used_gb": 1.88,
+      "gpu_energy_wh": 0.0001
+    },
+    "llm": {
+      "samples": 4726,
+      "avg_gpu_power_w": 0.35,
+      "peak_gpu_power_w": 22.72,
+      "avg_gpu_sm_clock_mhz": 2342.37,
+      "avg_gpu_clock_mhz": 2342.37,
+      "peak_gpu_temp_c": 53.0,
+      "peak_soc_temp_c": 58.4,
+      "peak_thermal_c": 58.4,
+      "avg_cpu_util_pct": 1.02,
+      "avg_cpu_freq_mhz": 3406.0,
+      "peak_ram_used_gb": 62.78,
+      "gpu_energy_wh": 0.4605
+    },
+    "cooldown_final": {
+      "samples": 10,
+      "avg_gpu_power_w": 2.08,
+      "peak_gpu_power_w": 18.4,
+      "avg_gpu_sm_clock_mhz": 607.6,
+      "avg_gpu_clock_mhz": 607.6,
+      "peak_gpu_temp_c": 51.0,
+      "peak_soc_temp_c": 56.4,
+      "peak_thermal_c": 56.4,
+      "avg_cpu_util_pct": 1.26,
+      "avg_cpu_freq_mhz": 3406.0,
+      "peak_ram_used_gb": 1.88,
+      "gpu_energy_wh": 0.0032
+    }
+  },
+  "metrics": {
+    "llm.gpt_oss_20b_pp512": {
+      "value": 4801.909976,
+      "unit": "tok/s",
+      "higher_is_better": true,
+      "note": "llama.cpp build 12119 (6f1e654); NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    },
+    "llm.gpt_oss_20b_pp512.avg_power": {
+      "value": 6.788888888888889,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "llm.gpt_oss_20b_pp512.efficiency": {
+      "value": 707.3189817348609,
+      "unit": "tok/s/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_20b_pp512.avg_sm_clock": {
+      "value": 2011.3333333333333,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_20b_pp512.throttle_reasons": {
+      "value": 1028,
+      "unit": "NVML mask",
+      "higher_is_better": false,
+      "note": "OR of nvmlDeviceGetCurrentClocksEventReasons over the test"
+    },
+    "llm.gpt_oss_20b_tg128": {
+      "value": 89.18612,
+      "unit": "tok/s",
+      "higher_is_better": true,
+      "note": "llama.cpp build 12119 (6f1e654); NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    },
+    "llm.gpt_oss_20b_tg128.avg_power": {
+      "value": 21.49232,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "llm.gpt_oss_20b_tg128.efficiency": {
+      "value": 4.149673930036404,
+      "unit": "tok/s/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_20b_tg128.avg_sm_clock": {
+      "value": 1891.072,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_20b_tg128.throttle_reasons": {
+      "value": 1024,
+      "unit": "NVML mask",
+      "higher_is_better": false,
+      "note": "OR of nvmlDeviceGetCurrentClocksEventReasons over the test"
+    },
+    "llm.gpt_oss_120b_pp512": {
+      "value": 1872.03056,
+      "unit": "tok/s",
+      "higher_is_better": true,
+      "note": "llama.cpp build 12119 (6f1e654); NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    },
+    "llm.gpt_oss_120b_pp512.avg_power": {
+      "value": 15.805517241379311,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "llm.gpt_oss_120b_pp512.efficiency": {
+      "value": 118.44158792215724,
+      "unit": "tok/s/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_120b_pp512.avg_sm_clock": {
+      "value": 1940.5862068965516,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_120b_pp512.throttle_reasons": {
+      "value": 1024,
+      "unit": "NVML mask",
+      "higher_is_better": false,
+      "note": "OR of nvmlDeviceGetCurrentClocksEventReasons over the test"
+    },
+    "llm.gpt_oss_120b_tg128": {
+      "value": 63.465119,
+      "unit": "tok/s",
+      "higher_is_better": true,
+      "note": "llama.cpp build 12119 (6f1e654); NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)"
+    },
+    "llm.gpt_oss_120b_tg128.avg_power": {
+      "value": 22.06440217391304,
+      "unit": "W",
+      "higher_is_better": false,
+      "note": ""
+    },
+    "llm.gpt_oss_120b_tg128.efficiency": {
+      "value": 2.8763579679052187,
+      "unit": "tok/s/W",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_120b_tg128.avg_sm_clock": {
+      "value": 1891.358695652174,
+      "unit": "MHz",
+      "higher_is_better": true,
+      "note": ""
+    },
+    "llm.gpt_oss_120b_tg128.throttle_reasons": {
+      "value": 1024,
+      "unit": "NVML mask",
+      "higher_is_better": false,
+      "note": "OR of nvmlDeviceGetCurrentClocksEventReasons over the test"
+    }
+  },
+  "failures": []
+}
