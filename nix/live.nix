@@ -110,7 +110,9 @@ in
   fileSystems."/mnt/sparkdata" = {
     device = "/dev/disk/by-label/SPARKDATA";
     fsType = "exfat";
-    options = [ "nofail" "x-systemd.device-timeout=10s" "uid=0" "gid=0" "fmask=0022" "dmask=0022" ];
+    # Mounted on first access: USB comes up late on N1X (after power_wrap/SSPM), and a plain
+    # mount with a 10 s device timeout gave up before the drive appeared (2026-11-07).
+    options = [ "nofail" "x-systemd.automount" "uid=0" "gid=0" "fmask=0022" "dmask=0022" ];
   };
   environment.variables = {
     ANVESANA_MODELS_DIR = "/mnt/sparkdata/models";
