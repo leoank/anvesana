@@ -57,15 +57,29 @@ in
   # Without power_wrap neither USB nor the I2C keyboard works, so the shell cannot be used:
   # on emergency, print the kernel lines that explain it to the console, for a photo.
   boot.initrd.systemd.initrdBin = [ pkgs.gnugrep ];   # dmesg: the initrd's util-linux-minimal
+  boot.initrd.systemd.contents."/etc/anvesana-diag.sh".text = ''
+    sleep 2
+    echo; echo "=== anvesana boot diagnostics ==="
+    echo "cmdline: $(cat /proc/cmdline | grep -oE 'init=[^ ]*|acpi_osi=[^ ]*( [^ ]*)?' | tr '\n' ' ')"
+    for d in NVDA8400:00 NVDA6210:00; do
+      s=$(cat /sys/bus/acpi/devices/$d/status 2>/dev/null || echo absent)
+      drv=$(basename "$(readlink /sys/bus/platform/devices/$d/driver 2>/dev/null)" 2>/dev/null)
+      echo "$d: _STA=$s driver=''${drv:-none}"
+    done
+    dmesg | grep -iE 'Table Upgrade|ACPI: (DSDT|SSDT).*(Override|Upgrade|OEM)|override|_OSI|sspm|NVDA8400|SSPM_CI|mbox|power_wrap|NVDA6210|DPM config|DPMT|platform id|BestPerf|DVFSRC|USB4' \
+      | grep -v 'mtk_pwrap_dev_probe' | head -n 30
+    dmesg | grep -m2 'scmi ret'
+    echo "=== end ==="
+  '';
   boot.initrd.systemd.services.anvesana-boot-diag = {
-    description = "Print power_wrap / USB probe messages to the console";
+    description = "Print power_wrap / SSPM probe messages to the console";
     wantedBy = [ "emergency.target" ];
     unitConfig.DefaultDependencies = false;
     serviceConfig = {
       Type = "oneshot";
       StandardOutput = "tty";
       TTYPath = "/dev/console";
-      ExecStart = "/bin/sh -c \"sleep 2; echo; echo '=== anvesana boot diagnostics ==='; dmesg | grep -iE 'pwrap|power_wrap|power wrap|NVDA6210|PEPD|DPM|sspm|scmi|xhci|ANV_SPARK' | grep -v 'Not find power wrap' | tail -n 40; echo '=== end ==='\"";
+      ExecStart = "/bin/sh /etc/anvesana-diag.sh";
     };
   };
 
