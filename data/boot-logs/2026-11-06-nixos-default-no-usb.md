@@ -125,3 +125,84 @@ device table, but `sspm_ci_set()` still returns `-ENODEV`: the SSPM mailbox is n
 `SSPM_CI` driver did not bind to NVDA8400 even with SSPM exposed. The filter cut off the earlier
 lines that would say why. ISO `fea43045` prints the kernel command line, SSPM's `_STA` and driver,
 and the ACPI override / SSPM / power_wrap probe lines instead.
+
+## Third attempt: ISO `fea43045`, three boots (2026-11-07, 00:24 to 00:34)
+
+Transcribed from three photos the author labelled with the entry used.
+
+### `sspm`, Ventoy normal mode: override not applied
+
+```
+cmdline: init=/nix/store/mi7w0lrxzwrq7fwpwivxy3i76xq4k1gp-nixos-system-bbaum-pc-7-26.05.20261102.7dcdd87/init
+NVDA8400:00: _STA=0 driver=none
+NVDA6210:00: _STA=15 driver=mtk_pwrap
+[    0.028529] ACPI: Added _OSI(Module Device)
+[    0.028531] ACPI: Added _OSI(Processor Device)
+[    0.028532] ACPI: Added _OSI(Processor Aggregator Device)
+[    0.038413] ACPI: USB4 _OSC: OS supports USB3+ DisplayPort+ PCIe+ XDomain+
+[    0.038415] ACPI: USB4 _OSC: OS controls USB3+ DisplayPort+ PCIe+ XDomain+
+[    0.110699] mtk_pwrap NVDA6210:00: device probe for "NVDA6210"
+[    0.110704] mtk_pwrap NVDA6210:00: ACPI MEM index 0x0: start = 0x1c8b0000, size = 0x100
+[    0.110706] mtk_pwrap NVDA6210:00: ACPI IRQ index 0x0: number = 39
+[    0.110707] mtk_pwrap NVDA6210:00: Config dev ctrl info from ACPI data
+[    0.111019] mtk_pwrap NVDA6210:00: DPM config from ACPI: revision=0, 75 devices
+[    0.111253] mtk_pwrap NVDA6210:00: DPMT: "\_SB_.DSP1" SCMI dev_id=0x19
+   ... DSP2 0x1a, DSP3 0x1b, USB0..USB5 0x0..0x5, UBF0..UBF3 0x6..0x9, COM3 0x2a,
+       SPI0 0x23, SPI2 0x25, SPI3 0x26, I2C0 0x1e, I2C1 0x1f, I2C2 0x20 ...
+[    0.506299] mtk_pwrap_dev_probe: scmi ret = -19 for device "\_SB_.PCI0"
+[    0.507350] mtk_pwrap_dev_probe: scmi ret = -19 for device "\_SB_.PCI6"
+```
+
+No `Table Upgrade` line and SSPM still `_STA=0`: Ventoy adds its own initramfs to Linux ISOs, and
+with it in front, the kernel does not find the uncompressed override cpio that the `sspm` entry's
+initrd starts with.
+
+### `sspm`, Ventoy GRUB2 mode: override applied, SSPM bound, USB and keyboard work
+
+```
+cmdline:
+NVDA8400:00: _STA=15 driver=SSPM_CI
+NVDA6210:00: _STA=15 driver=mtk_pwrap
+[    0.000000] ACPI: Table override allocation 0x0000000080141000 (299008 bytes) within EFI region 0x0000000080000000-0x000000008018a000
+[    0.000000] ACPI: Table Upgrade: override [DSDT-  NVDA-ANGUS   ]
+[    0.000000] ACPI: DSDT 0x0000000087031018 Physical table override, new table: 0x0000000080141000
+[    0.029820] ACPI: Added _OSI(Module Device)
+   ...
+[    0.112692] SSPM_CI NVDA8400:00: SSPM_CI_SET IRQ = 39.
+[    0.112700] SSPM_CI NVDA8400:00: SSPM_CI_GET IRQ = 40.
+[    0.112726] mtk_pwrap NVDA6210:00: device probe for "NVDA6210"
+   ... DPM config from ACPI: revision=0, 75 devices (as above)
+```
+
+The keyboard worked. The boot still stopped at `Timed out waiting for device
+/dev/disk/by-label/ANV_SPARK`: in GRUB2 mode Ventoy does not map the ISO to a device, and the
+ISO lives as a file on Ventoy's exFAT partition (the empty `cmdline:` field is a diagnostics bug:
+the grep found no `init=` in that command line).
+
+### `osi`, Ventoy normal mode: boots to a shell
+
+`acpi_osi="!Windows 2022"` exposes SSPM without a table override, so Ventoy's initramfs does not
+matter. Logged in automatically as `nixos`; `cat /etc/anvesana-boot-entry` gives `osi`.
+
+```
+[   14.019210] ucsi_acpi USBC000:00: GET_CURRENT_CAM command failed
+$ nvidia-smi
+NVIDIA-SMI 615.78.08    KMD Version: 615.78.08    CUDA UMD Version: 13.4
+  0  NVIDIA RTX Spark N1X (61...  Off | 0000000F:01:00.0  On | N/A
+N/A  40C  P8   1W / N/A | Not Supported | 0%  Default
+$ lsblk
+loop0        7:0    0   2.8G  1 loop /nix/.ro-store
+sda          8:0    1 117.2G  0 disk
+└─sda1       8:1    1 117.2G  0 part
+sdb          8:16   1  57.3G  0 disk
+├─sdb1       8:17   1  57.3G  0 part
+│ ├─ventoy   252:0  0     3G  1 dm   /iso
+│ └─VentoyPart 252:1 0  57.3G  0 dm
+└─sdb2       8:18   1    32M  0 part
+nvme0n1    259:0    0   1.9T  0 disk   (5 partitions, not mounted)
+$ ls /mnt/sparkdata
+ls: cannot access '/mnt/sparkdata': No such file or directory
+```
+
+SPARKDATA (`sda1`) was present but not mounted: the `x-systemd.device-timeout=10s` mount ran out
+before the late USB enumeration. ISO `e6a2cb99` mounts it on first access instead.
