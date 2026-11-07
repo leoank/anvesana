@@ -11,8 +11,10 @@
 #
 # Output in <out-dir>: serial.log, shots/NNNN.png (the screen every 10 s), qemu.log, and
 # sparkdata/: the contents of the blank exFAT "SPARKDATA" disk the VM wrote its logs to.
-# After <seconds> the VM gets an ACPI power button press (so shutdown collection runs), then
-# up to 3 min to power off. Runs in WSL or on any aarch64 Linux with Nix; uses sudo for loop
+# In kernel mode the image powers itself off <seconds> after its boot (anvesana.vmtest_poweroff),
+# so shutdown collection runs as on a normal Power Off; a power-button press follows only if it
+# has not after 10 more minutes, and QEMU is stopped 3 min after that. In uefi mode the power
+# button comes after <seconds>. Runs in WSL or on any aarch64 Linux with Nix; uses sudo for loop
 # mounts. Without KVM the CPU is emulated (TCG): boot takes minutes.
 set -euo pipefail
 iso=$(readlink -f "$1"); out=$2; secs=${3:-900}; entry=${4:-serial}; mode=${5:-kernel}
@@ -41,6 +43,9 @@ if [ "$mode" = kernel ]; then
   [ -n "$linux" ] && [ -n "$initrd" ] || { echo "no boot entry matching '$entry' in $cfg" >&2; sudo umount "$mnt"; exit 1; }
   cp "$mnt$linux" "$out/Image"; cp "$mnt$initrd" "$out/initrd"; sudo umount "$mnt"; rmdir "$mnt"
   echo "$args" >"$out/cmdline.txt"
+  # The image powers itself off cleanly after <seconds> (nix/desktop-live.nix); GNOME would only
+  # ask on a power-button press. The power button below stays as the fallback.
+  args="$args anvesana.vmtest_poweroff=$secs"
   boot=(-kernel "$out/Image" -initrd "$out/initrd" -append "$args")
   echo "entry '$entry': $args"
 fi
@@ -63,7 +68,9 @@ qpid=$!
 # The monitor runs a command only while the connection is open: keep it open for 2 s.
 monitor() { { printf '%s\n' "$1"; sleep 2; } | timeout 8 socat - UNIX-CONNECT:"$mon" >>"$out/monitor.log" 2>&1 || true; }
 
-n=0; t0=$(date +%s); stop_at=$((t0 + secs)); sent=0
+n=0; t0=$(date +%s); sent=0
+# kernel mode: the guest's own timer starts after boot (minutes under TCG), so wait longer here
+if [ "$mode" = kernel ]; then stop_at=$((t0 + secs + 600)); else stop_at=$((t0 + secs)); fi
 while kill -0 "$qpid" 2>/dev/null; do
   n=$((n + 1)); monitor "screendump $out/shots/$(printf %04d $n).ppm"   # QEMU 10 HMP: PPM only
   now=$(date +%s)
