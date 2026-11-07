@@ -13,6 +13,15 @@
     };
     packages.aarch64-linux.rtx-spark-live = self.nixosConfigurations.rtx-spark-live.config.system.build.isoImage;
 
+    # nix build .#rtx-spark-desktop         GNOME live image for daily-driver testing, with
+    #   log collection to SPARKDATA (nix/desktop-live.nix); same ANVESANA_ACPI_OVERRIDE rule.
+    # scripts/vm-test.sh boots it in QEMU and checks the collected logs.
+    nixosConfigurations.rtx-spark-desktop = nixpkgs.lib.nixosSystem {
+      specialArgs.anvesanaSrc = self;
+      modules = [ ./nix/desktop-live.nix ];
+    };
+    packages.aarch64-linux.rtx-spark-desktop = self.nixosConfigurations.rtx-spark-desktop.config.system.build.isoImage;
+
     # Hardware support for an installed NixOS on an N1X laptop: kernel, NVIDIA
     # (display included), CPU frequency init, initrd modules, sleep policy.
     nixosModules.n1x = ./nix/n1x.nix;
