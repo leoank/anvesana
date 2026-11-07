@@ -40,3 +40,16 @@ on screen can be seen. Ank chose GNOME (touch, pen, tablet mode).
   boot, periodic and shutdown collections all landed. Remaining bugs (no hostname in the path,
   `bench` not on PATH, accelerometer false positive, PNG screendump rejected by QEMU 10) fixed for
   the third run.
+- Third run (serial entry): folder `bootlogs/bbaum-pc-7/<boot>_sspm-serial_<id>/`, boot snapshot
+  with `bench inventory`, journal every 5 min, shutdown copy; 21 distinct screens. GNOME's desktop
+  appeared about 7 min after boot under TCG, then blanked after its 5-min idle default.
+- The screen showed only warnings: NixOS appends `loglevel=4` (boot.consoleLogLevel) after our
+  `loglevel=7`. Now `boot.consoleLogLevel = 7`; the fourth run's screens show kernel lines and
+  systemd's status lines together. "Collect logs" pinned first in the dash.
+- GNOME intercepts the VM's power button and asks, so a test could not end cleanly. Added a
+  test-only `anvesana.vmtest_poweroff=<s>` kernel parameter (unit skipped without it). Fifth run:
+  self power-off after 600 s, shutdown collection written, 51 files on the data disk, fsck clean.
+- Seen in the VM, also expected on the laptop: a 90 s non-blocking wait for a serial login on
+  ttyAMA0 (the kernel adds the SPCR console; the laptop has an SPCR table too).
+- ISO 2484c6ca (sspm default) copied to `C:\Users\<user>\anvesana-rtx-spark-desktop-2484c6ca.iso`,
+  hash checked.
