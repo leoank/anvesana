@@ -105,3 +105,23 @@ With no USB host, the initrd never sees the boot stick (`ANV_SPARK`). Fix: expos
 `acpi_osi="!Windows 2022"` (the `osi` entry, which exposes all five hidden devices) or with the
 DSDT override from `scripts/acpi-hidden-devices.py --expose SSPM` (the `sspm` entry, which exposes
 SSPM only). Both are in ISO `0f0f6f14`.
+
+## Second attempt: ISO `0f0f6f14`, `sspm` and `osi` entries (2026-11-06, 23:49 and 23:57)
+
+Two boots, transcribed from two photos; which photo is which entry was not recorded. Both end the
+same way as above (`Timed out waiting for device /dev/disk/by-label/ANV_SPARK`, emergency mode),
+and the on-screen diagnostics (last 40 matching dmesg lines) show, per xHCI controller:
+
+```
+[    2.211107] xhci-hcd NVDA8000:03: eye swing: val[0]=0x0, val[1]=0x0
+[    2.211107] mtk_pwrap_dev_probe: Device found at path \_SB_.USB3
+[    2.211107] mtk_pwrap_dev_probe: control type is scmi, payload: 0xd, 0x3, 0x1000000, 0x0, 0x0, 0x0
+[    2.211108] mtk_pwrap_dev_probe: scmi ret = -19 for device "\_SB_.USB3"
+[    2.211119] xhci-hcd NVDA8000:03: probe with driver xhci-hcd failed with error -22
+```
+
+(the same for USB2, USB4 and USB5, with payload dev_id 0x2, 0x4, 0x5). So power_wrap now finds its
+device table, but `sspm_ci_set()` still returns `-ENODEV`: the SSPM mailbox is not mapped, i.e. the
+`SSPM_CI` driver did not bind to NVDA8400 even with SSPM exposed. The filter cut off the earlier
+lines that would say why. ISO `fea43045` prints the kernel command line, SSPM's `_STA` and driver,
+and the ACPI override / SSPM / power_wrap probe lines instead.
