@@ -97,6 +97,10 @@ in
   services.spice-vdagentd.enable = lib.mkForce false;
   services.qemuGuest.enable = lib.mkForce false;
   virtualisation.hypervGuest.enable = lib.mkForce false;
+  services.desktopManager.gnome.favoriteAppsOverride = lib.mkForce ''
+    [org.gnome.shell]
+    favorite-apps=[ 'anvesana-collect.desktop', 'org.gnome.Console.desktop', 'firefox.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop' ]
+  '';
   hardware.bluetooth.enable = true;
   hardware.sensor.iio.enable = true;              # accelerometer: auto-rotate in tablet mode
   services.fprintd.enable = false;
@@ -142,6 +146,20 @@ in
     };
   };
   powerManagement.resumeCommands = "${collect}/bin/anvesana-collect full resume || true";
+
+  # For scripts/vm-test.sh only: `anvesana.vmtest_poweroff=<seconds>` on the kernel command line
+  # powers off cleanly after that long (GNOME catches the VM's power button and asks instead).
+  # Without the parameter the unit does not run.
+  systemd.services.anvesana-vmtest-poweroff = {
+    description = "Power off after anvesana.vmtest_poweroff seconds (VM tests)";
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionKernelCommandLine = "anvesana.vmtest_poweroff";
+    script = ''
+      secs=$(tr ' ' '\n' </proc/cmdline | sed -n 's/^anvesana.vmtest_poweroff=//p')
+      sleep "''${secs:-600}"
+      systemctl poweroff
+    '';
+  };
 
   services.getty.helpLine = lib.mkForce ''
 

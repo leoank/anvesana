@@ -29,7 +29,10 @@ in
   ];
   networking.hostName = "bbaum-pc-7";   # matches machines/bbaum-pc-7.toml
   boot.supportedFilesystems = lib.mkForce [ "vfat" "exfat" "ext4" "iso9660" "squashfs" "overlay" ];
-  boot.kernelParams = [ "console=tty0" "loglevel=7" ];
+  boot.kernelParams = [ "console=tty0" ];
+  # Every kernel message on screen during boot. A `loglevel=7` kernel parameter does not do it:
+  # NixOS appends its own loglevel (boot.consoleLogLevel, default 4) later on the command line.
+  boot.consoleLogLevel = 7;
 
   # ------------------------------------------------------------------ failed-boot diagnostics
   # A live image with no secrets: let the initrd's emergency shell open without a password, so a
