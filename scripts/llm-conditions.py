@@ -13,13 +13,16 @@ records the state for every sample, so a charger pulled mid-run shows up.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import psutil
 
 WANT = {"ac": True, "dc": False}
+SRC = Path(__file__).resolve().parents[1] / "src"
 
 
 def battery():
@@ -76,7 +79,12 @@ def main(argv=None) -> int:
         if "llm" in args.benchmarks.split(","):
             cmd += ["--set", f"llm.models={args.models}"]
         print("$ bench " + " ".join(cmd), flush=True)
-        rc = subprocess.call([sys.executable, "-m", "anvesana", *cmd])
+        # The repo's src/ goes on PYTHONPATH: on the live image anvesana is not installed, and
+        # from /root the repo checkout (/root/anvesana) would otherwise be imported as a
+        # namespace package with no __main__.
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join(
+            [str(SRC), *filter(None, [os.environ.get("PYTHONPATH")])]))
+        rc = subprocess.call([sys.executable, "-m", "anvesana", *cmd], env=env)
         if rc not in (0, 1):  # 1 = health FAIL, still a result
             return rc
     return 0
