@@ -40,14 +40,25 @@ now() { date +%H:%M:%S; }
 # run <file> <command...>: command output (stdout+stderr, 60 s limit) into <file>, never fails
 run() { local f=$1; shift; { echo "\$ $*"; timeout 60 "$@" 2>&1; echo "[exit $?]"; } >>"$f"; }
 # as_user <command...>: inside the graphical session of the auto-login user (pactl, gsettings)
-user=$(getent passwd 1000 | cut -d: -f1)
-as_user() { [ -n "$user" ] && runuser -u "$user" -- env XDG_RUNTIME_DIR=/run/user/1000 \
-  DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus "$@"; }
+user=$(awk -F: '$3 == 1000 {print $1}' /etc/passwd)   # the auto-login user (no getent on PATH)
+as_user() { [ -n "$user" ] && timeout 30 runuser -u "$user" -- env XDG_RUNTIME_DIR=/run/user/1000 \
+  DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 "$@"; }
 
 echo "$(date -Iseconds) $mode $label" >>"$dir/events.txt"
 journalctl -b --no-pager -o short-precise >"$dir/journal.txt" 2>&1
 dmesg -T >"$dir/dmesg.txt" 2>&1 || journalctl -k -b --no-pager >"$dir/dmesg.txt" 2>&1
 cat /proc/cmdline >"$dir/cmdline.txt"
+
+# Load at every collection (journal ones included, so a laggy or hanging session leaves a trail):
+# the top CPU users, GPU utilisation for 5 s, and which GL/EGL driver the compositor has loaded.
+{ echo "===== $(date -Iseconds) $mode $label, uptime $(cut -d' ' -f1 /proc/uptime) s, load $(cut -d' ' -f1-3 /proc/loadavg)"
+  top -b -n 1 -w 200 -o %CPU 2>&1 | head -22
+  echo "--- nvidia-smi dmon (5 s)"; timeout 15 nvidia-smi dmon -c 5 -s pucm 2>&1
+  for p in $(pgrep -x gnome-shell; pgrep -x .gnome-shell-wr; pgrep -x Xwayland); do
+    echo "--- graphics libraries in $(cat /proc/"$p"/comm 2>/dev/null) ($p)"
+    grep -oE '[^/ ]*(nvidia|gallium|swrast|llvmpipe|mesa|EGL|GLX|gbm|vulkan)[^/ ]*\.so[^ ]*' /proc/"$p"/maps 2>/dev/null | sort -u | tr '\n' ' '; echo
+  done; echo; } >>"$dir/load.txt" 2>&1
+
 [ "$mode" = journal ] && { sync; echo "anvesana-collect: journal -> $dir"; exit 0; }
 
 s="$dir/snapshot-$(date +%H%M%S)-$label"
@@ -96,6 +107,15 @@ check "GPU (nvidia-smi)" "$(nvidia-smi -L >/dev/null 2>&1 && echo OK || echo MIS
 check "Vulkan" "$(grep -q 'deviceName' "$s/gpu-vulkan.txt" && echo OK || echo MISSING)" \
   "$(grep -m1 deviceName "$s/gpu-vulkan.txt" | sed 's/.*= //')"
 check "OpenGL renderer" INFO "$(grep -m1 'OpenGL renderer' "$s/gpu-glx.txt" | sed 's/.*: //')"
+check "EGL (Wayland)" INFO "$(grep -m1 -iE 'OpenGL (core profile )?renderer' "$s/gpu-egl.txt" | sed 's/.*: //')"
+shell_libs=$(tail -n 40 "$dir/load.txt" | grep -A1 'graphics libraries in .*gnome-shell' | tail -1)
+check "compositor GL driver" "$(printf '%s' "$shell_libs" | grep -q 'nvidia' && echo OK || echo INFO)" \
+  "$(printf '%s' "$shell_libs" | grep -oE 'libEGL_nvidia|libnvidia-eglcore|libgallium[^ ]*|swrast[^ ]*|llvmpipe[^ ]*' | sort -u | tr '\n' ' ')"
+# KMS state: planes, framebuffer formats and modifiers, CRTC mode (debugfs)
+mountpoint -q /sys/kernel/debug || mount -t debugfs none /sys/kernel/debug 2>/dev/null
+for st in /sys/kernel/debug/dri/*/state; do echo "== $st"; cat "$st"; done >"$s/kms-state.txt" 2>&1
+cat /sys/module/nvidia_drm/parameters/* >"$s/nvidia-drm-params.txt" 2>&1
+grep -H . /sys/module/nvidia_drm/parameters/* >>"$s/nvidia-drm-params.txt" 2>&1
 { for c in /sys/class/drm/card*-*; do
     [ -e "$c/status" ] || continue
     echo "${c##*/}: $(cat "$c/status") enabled=$(cat "$c/enabled" 2>/dev/null) modes=$(head -3 "$c/modes" 2>/dev/null | tr '\n' ' ')"
