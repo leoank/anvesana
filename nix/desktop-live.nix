@@ -29,7 +29,7 @@ let
     runtimeInputs = with pkgs; [
       coreutils util-linux systemd gnugrep gnused gawk procps kmod iproute2 iw networkmanager
       bluez pciutils usbutils libinput alsa-utils pulseaudio v4l-utils upower power-profiles-daemon
-      iio-sensor-proxy mesa-demos vulkan-tools gnome-shell
+      iio-sensor-proxy mesa-demos vulkan-tools gnome-shell libva-utils
     ] ++ [ (config.hardware.nvidia.package.bin or config.hardware.nvidia.package) ];   # nvidia-smi
     # The N1X UCM profiles (nix/n1x.nix); system services do not get session variables.
     runtimeEnv.ALSA_CONFIG_UCM2 = config.n1x.alsaUcm2;
@@ -103,13 +103,24 @@ in
     [org.gnome.shell]
     favorite-apps=[ 'anvesana-collect.desktop', 'org.gnome.Console.desktop', 'firefox.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop' ]
   '';
+  # Firefox decodes video through VA-API (nvidia-vaapi-driver, nix/n1x.nix); its README asks for
+  # these prefs and an unsandboxed RDD process.
+  programs.firefox = {
+    enable = true;
+    preferences = {
+      "media.ffmpeg.vaapi.enabled" = true;
+      "media.hardware-video-decoding.force-enabled" = true;
+      "widget.dmabuf.force-enabled" = true;
+    };
+  };
+  environment.sessionVariables.MOZ_DISABLE_RDD_SANDBOX = "1";
   hardware.bluetooth.enable = true;
   hardware.sensor.iio.enable = true;              # accelerometer: auto-rotate in tablet mode
   services.fprintd.enable = false;
   # The installer's GDM autologin user is `nixos` (uid 1000, passwordless sudo).
 
   environment.systemPackages = (with pkgs; [
-    gnome-tweaks mpv glmark2 mesa-demos vulkan-tools v4l-utils alsa-utils pulseaudio
+    gnome-tweaks mpv glmark2 mesa-demos vulkan-tools v4l-utils alsa-utils pulseaudio libva-utils
     libinput evtest brightnessctl iw pciutils usbutils lshw dmidecode acpica-tools
     git htop powertop exfatprogs
   ]) ++ [ collect collectApp ];

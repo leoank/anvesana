@@ -110,6 +110,9 @@ as_user eglinfo -B >"$s/gpu-egl.txt" 2>&1
 as_user vulkaninfo --summary >"$s/gpu-vulkan.txt" 2>&1
 as_user glxinfo -B >"$s/gpu-glx.txt" 2>&1
 check "GPU (nvidia-smi)" "$(nvidia-smi -L >/dev/null 2>&1 && echo OK || echo MISSING)" "$(nvidia-smi -L 2>/dev/null | head -1)"
+as_user env LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct vainfo >"$s/gpu-vaapi.txt" 2>&1
+check "VA-API decode" "$(grep -q 'VAEntrypointVLD' "$s/gpu-vaapi.txt" && echo OK || echo MISSING)" \
+  "$(grep -c 'VAEntrypointVLD' "$s/gpu-vaapi.txt") decode profiles; $(grep -m1 'Driver version' "$s/gpu-vaapi.txt" | sed 's/.*: //')"
 check "Vulkan" "$(grep -q 'deviceName' "$s/gpu-vulkan.txt" && echo OK || echo MISSING)" \
   "$(grep -m1 deviceName "$s/gpu-vulkan.txt" | sed 's/.*= //')"
 check "OpenGL renderer" INFO "$(grep -m1 'OpenGL renderer' "$s/gpu-glx.txt" | sed 's/.*: //')"
@@ -149,7 +152,9 @@ check "touchscreen" "$(grep -q 'Capabilities:.*touch' "$s/input-libinput.txt" &&
 check "pen / stylus" "$(grep -q 'Capabilities:.*tablet' "$s/input-libinput.txt" && echo OK || echo MISSING)" \
   "$(grep -B12 'Capabilities:.*tablet ' "$s/input-libinput.txt" | grep -m1 '^Device' | sed 's/Device: *//')"
 ls /sys/class/leds >"$s/leds.txt" 2>&1
-check "keyboard backlight" "$(grep -qi kbd "$s/leds.txt" && echo OK || echo MISSING)" "$(grep -i kbd "$s/leds.txt" | tr '\n' ' ')"
+# On bbaum-pc-7 the EC handles Fn + F8 itself (works on Linux, 2026-11-07); there is no LED device.
+check "keyboard backlight" "$(grep -qi kbd "$s/leds.txt" && echo OK || echo INFO)" \
+  "$(grep -i kbd "$s/leds.txt" | tr '\n' ' ')${s:+ (no LED device; EC handles Fn+F8)}"
 
 # ---- sensors (accelerometer, hinge, light), tablet mode
 { for d in /sys/bus/iio/devices/iio:device*; do
