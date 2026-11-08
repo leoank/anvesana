@@ -92,3 +92,17 @@ on screen can be seen. Ank chose GNOME (touch, pen, tablet mode).
     The only IIO device is the webcam's presence sensor. Needs an out-of-tree or backported driver.
   - Keyboard backlight: no LED class device (EC-driven on Windows).
   - Hardware video decode in Firefox (no VA-API driver for NVIDIA).
+- Laptop boot of ISO 9d8b4e96 (2026-11-08 01:00): smooth GNOME (vblank off), sound works on
+  speakers and headphones (sinks HiFi__Speaker__sink / HiFi__Headphones__sink from NVIDIA's
+  MT8901 UCM), VA-API reports 19 decode profiles through nvidia-vaapi-driver. The sensor hub
+  still failed: `spi_hid_acpi spi-MSFW1111:00: error -EINVAL: Missing IRQ`. The GPIO controller
+  (mt8901-pinctrl, NVDA9221) is bound and pin 190 has an EINT (bank 3 bit 9), so the SPI core's
+  GpioInt lookup failed for a reason it does not log. The driver now asks again, logs both
+  values and uses a valid IRQ; the collector saves /sys/kernel/debug/gpio and /proc/interrupts.
+- Asahi audio, assessed: its per-Mac FIR filters are measured and cannot be reused; its generic
+  chain (Bankstown, LSP loudness, limiter) can, and is now an opt-in "Speakers (DSP)" output
+  (`n1x.speakerDsp`, tuned by ear). speakersafetyd needs amplifier V/I sense data; our RT1320s
+  protect on-chip but run on ROM defaults on Linux: the Linux driver looks for a per-model
+  `realtek/rt1320/rt1320_<vendor>_<product>_<sku>.dat` and RAE file, and Windows has MSI's data
+  only inside an obfuscated Realtek container (RTKDAT_1462.dat, 835 KB, in the MSI XU driver
+  package). Not extracted; it stays out of git.
