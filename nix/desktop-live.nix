@@ -114,6 +114,7 @@ in
     };
   };
   environment.sessionVariables.MOZ_DISABLE_RDD_SANDBOX = "1";
+  n1x.speakerDsp = true;                          # "Speakers (DSP)" output to compare by ear
   hardware.bluetooth.enable = true;
   hardware.sensor.iio.enable = true;              # accelerometer: auto-rotate in tablet mode
   services.fprintd.enable = false;

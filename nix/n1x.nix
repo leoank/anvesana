@@ -89,6 +89,16 @@ in
       default = false;
       description = "Pass the ProArt tuple's `nvidia_drm vblank=1` (only with nvidiaDisplay).";
     };
+    speakerDsp = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Add a "Speakers (DSP)" output in the style of Asahi Linux's asahi-audio: Bankstown bass
+        enhancement, LSP loudness compensation and a limiter in a PipeWire filter-chain before the
+        speaker sink. No speaker-specific EQ (that needs measurements of these speakers); tuned
+        conservatively by ear. Low priority, so the plain speaker output stays the default.
+      '';
+    };
     alsaUcm2 = lib.mkOption {
       type = lib.types.str;
       readOnly = true;
@@ -149,6 +159,65 @@ in
     ];
 
     # ---------------------------------------------------------------- audio
+    # Optional speaker DSP (n1x.speakerDsp), modelled on asahi-audio's graphs (firs/*/graph.json,
+    # github.com/AsahiLinux/asahi-audio): bassex -> per-channel loudness (carries the volume) ->
+    # limiter (asahi's woofer_lim settings). Bankstown's final_hp keeps sub-120 Hz content off
+    # the microspeakers. The RT1320s run on their ROM defaults on Linux (MSI's tuning is in an
+    # obfuscated Realtek container on Windows), so the limiter is a software safety net.
+    services.pipewire.extraConfig.pipewire."60-n1x-speaker-dsp" = lib.mkIf cfg.speakerDsp {
+      "context.modules" = [ {
+        name = "libpipewire-module-filter-chain";
+        flags = [ "nofail" ];
+        args = {
+          "node.description" = "Speakers (DSP)";
+          "media.name" = "Speakers (DSP)";
+          "filter.graph" = {
+            nodes = [
+              { type = "lv2"; plugin = "https://chadmed.au/bankstown"; name = "bassex";
+                control = { bypass = 0; amt = 1.2; sat_second = 1.3; sat_third = 1.5; blend = 1.0;
+                            ceil = 200.0; floor = 20.0; final_hp = 120.0; }; }
+              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/loud_comp_mono"; name = "ell";
+                control = { enabled = 1; input = 1.0; fft = 2; }; }
+              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/loud_comp_mono"; name = "elr";
+                control = { enabled = 1; input = 1.0; fft = 2; }; }
+              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/compressor_stereo"; name = "lim";
+                control = { sla = 5.0; al = 1.0; at = 1.0; rt = 100.0; cr = 15.0; kn = 0.5; }; }
+            ];
+            links = [
+              { output = "bassex:out_l"; input = "ell:in"; }
+              { output = "bassex:out_r"; input = "elr:in"; }
+              { output = "ell:out"; input = "lim:in_l"; }
+              { output = "elr:out"; input = "lim:in_r"; }
+            ];
+            inputs = [ "bassex:in_l" "bassex:in_r" ];
+            outputs = [ "lim:out_l" "lim:out_r" ];
+            "capture.volumes" = [
+              { control = "ell:volume"; min = -47.5; max = 0.0; scale = "cubic"; }
+              { control = "elr:volume"; min = -47.5; max = 0.0; scale = "cubic"; }
+            ];
+          };
+          "capture.props" = {
+            "node.name" = "audio_effect.n1x-speakers";
+            "media.class" = "Audio/Sink";
+            "audio.channels" = 2;
+            "audio.position" = [ "FL" "FR" ];
+            "priority.session" = 500;          # below the ALSA sinks: opt-in, not the default
+            "state.default-volume" = 0.343;
+            "device.icon-name" = "audio-speakers";
+          };
+          "playback.props" = {
+            "node.name" = "effect_output.n1x-speakers";
+            "target.object" = "alsa_output.platform-mtk_sdw_mc.HiFi__Speaker__sink";
+            "node.dont-fallback" = true;
+            "node.passive" = true;
+            "audio.channels" = 2;
+            "audio.position" = [ "FL" "FR" ];
+          };
+        };
+      } ];
+    };
+    services.pipewire.extraLv2Packages = lib.mkIf cfg.speakerDsp [ pkgs.bankstown-lv2 pkgs.lsp-plugins ];
+
     # (ALSA_CONFIG_UCM2 is in environment.sessionVariables above)
     systemd.user.services.pipewire.environment.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
     systemd.user.services.wireplumber.environment.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
