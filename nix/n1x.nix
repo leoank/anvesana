@@ -107,6 +107,11 @@ in
       "i2c_mt65xx" "i2c_hid_acpi" "usbhid" "hid_generic" "hid_multitouch"
     ];
     hardware.enableRedistributableFirmware = true;
+    # HID over SPI (not in Linux 7.0): the sensor hub (accelerometer, ambient light) is MSFW1111 /
+    # PNP0C51 on SPI3. spi-hid-acpi matches it by ACPI ID; loaded explicitly as well, since it is
+    # new on this platform and its absence should show in the logs. See nix/spi-hid/README.md.
+    boot.extraModulePackages = [ (config.boot.kernelPackages.callPackage ./spi-hid.nix { }) ];
+    boot.kernelModules = [ "spi-hid-acpi" ];
 
     # ---------------------------------------------------------------- NVIDIA
     services.xserver.videoDrivers = [ "nvidia" ];   # selects hardware.nvidia; enables no X server by itself
@@ -135,8 +140,16 @@ in
     # The ProArt's qualified tuple also sets vblank=1 (h7607a-nvidia.conf); off by default here.
     boot.extraModprobeConfig = lib.mkIf (cfg.nvidiaDisplay && cfg.nvidiaVblank) "options nvidia_drm vblank=1";
 
+    # VA-API on NVDEC (Firefox found no hardware decoder, 2026-11-07). NVD_BACKEND=direct is the
+    # driver's backend for current NVIDIA drivers (its README).
+    hardware.graphics.extraPackages = [ pkgs.nvidia-vaapi-driver ];
+    environment.sessionVariables = lib.mkMerge [
+      (lib.mkIf cfg.nvidiaDisplay { LIBVA_DRIVER_NAME = "nvidia"; NVD_BACKEND = "direct"; })
+      { ALSA_CONFIG_UCM2 = cfg.alsaUcm2; }       # audio, below
+    ];
+
     # ---------------------------------------------------------------- audio
-    environment.sessionVariables.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
+    # (ALSA_CONFIG_UCM2 is in environment.sessionVariables above)
     systemd.user.services.pipewire.environment.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
     systemd.user.services.wireplumber.environment.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
 
