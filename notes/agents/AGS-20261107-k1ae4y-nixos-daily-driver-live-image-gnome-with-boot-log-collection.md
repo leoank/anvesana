@@ -72,3 +72,23 @@ on screen can be seen. Ank chose GNOME (touch, pen, tablet mode).
     into gnome-shell and Xwayland, plus the KMS debugfs state in full snapshots.
   - ProArt comparison: same driver tuple and nvidia_drm options; its `libnvidia-rmapi-tegra`
     fix is already in nixpkgs' nvidia-x11; it documents no desktop.
+- Laptop A/B, ISO 70c366cf (2026-11-07 22:35 to 2026-11-08 00:16): `sspm` and `osi` (both
+  `nvidia_drm vblank=1`) lagged as before; `sspm, nvidia_drm without vblank=1` ran smoothly.
+  Both had GNOME on NVIDIA GL (gnome-shell holds /dev/nvidia0; EGL/GL/Vulkan renderer "NVIDIA RTX
+  Spark N1X"); the only difference was /sys/module/nvidia_drm/parameters/vblank Y vs N. So the
+  ProArt tuple's vblank=1 stalls page flips on this panel (3840x2400@120, VRR OLED). Now off by
+  default (`n1x.nvidiaVblank = false`).
+- Working on that boot: Wi-Fi connected (wpa_supplicant fix), Bluetooth, keyboard, touchpad,
+  touchscreen and pen, panel backlight, camera devices, battery, CPU scaling; Firefox WebGL on
+  NVIDIA at 3840x2400@120 scale 2 (Ank's about:support and screenshot on SPARKDATA).
+- Not working:
+  - Sound: SoundWire is up (2x RT1320 uid 0/1 on link 0, RT712 on link 1) and the ALSA card
+    `mt8901-soundwire` exists, but alsa-ucm-conf 1.2.15.3 has no profile ("no backend DAIs enabled
+    for DL0_FE"), so PipeWire shows only a dummy output. NVIDIA's open alsa-ucm-conf PR 862 has a
+    board-validated profile for exactly this topology (HiFi-rt1320x2-rt712.conf); added pinned at
+    7d3555a through ALSA_CONFIG_UCM2 (`n1x.alsaUcm2`), no rebuild of alsa-lib users.
+  - Accelerometer / light sensor: the sensor hub MSFW1111 (`\_SB.SENH`) is HID over SPI and has
+    no driver; the kernel config has hid-sensor-hub and accel_3d but no HID-over-SPI transport.
+    The only IIO device is the webcam's presence sensor. Needs an out-of-tree or backported driver.
+  - Keyboard backlight: no LED class device (EC-driven on Windows).
+  - Hardware video decode in Firefox (no VA-API driver for NVIDIA).
