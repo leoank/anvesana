@@ -224,6 +224,20 @@ static int spi_hid_acpi_probe(struct spi_device *spi)
 		return error;
 	}
 
+	/*
+	 * anvesana (bbaum-pc-7, not upstream): the SPI core turns a failed GpioInt lookup into
+	 * spi->irq = 0 without saying why. Ask again here, log the result, and use it if valid.
+	 */
+	if (spi->irq <= 0) {
+		int irq = acpi_dev_gpio_irq_get(adev, 0);
+
+		dev_info(dev, "anvesana: spi->irq=%d, acpi_dev_gpio_irq_get(0)=%d\n", spi->irq, irq);
+		if (irq == -EPROBE_DEFER)
+			return irq;
+		if (irq > 0)
+			spi->irq = irq;
+	}
+
 	return spi_hid_core_probe(spi, &config->ops, &config->property_conf);
 }
 

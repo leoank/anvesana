@@ -15,4 +15,10 @@ Why: bbaum-pc-7's sensor hub (accelerometer, ambient light) is `\_SB.SENH`, `MSF
 standard Microsoft HID-over-SPI ACPI binding, which `spi-hid-acpi` matches. Above it,
 `hid-sensor-hub` and `hid-sensor-accel-3d` are already in the kernel.
 
+Local change (marked `anvesana` in `spi-hid-acpi.c`): the first laptop boot failed with
+`spi_hid_acpi spi-MSFW1111:00: error -EINVAL: Missing IRQ` (2026-11-08). The SPI core resolves an
+ACPI `GpioInt` with `acpi_dev_gpio_irq_get()` and turns any error into `spi->irq = 0`, so the
+reason is lost. The probe now asks again, logs both values, and uses the IRQ if the second
+lookup succeeds.
+
 Licence: GPL-2.0 (SPDX headers in each file).

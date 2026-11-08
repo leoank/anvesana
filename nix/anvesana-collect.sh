@@ -156,11 +156,20 @@ ls /sys/class/leds >"$s/leds.txt" 2>&1
 check "keyboard backlight" "$(grep -qi kbd "$s/leds.txt" && echo OK || echo INFO)" \
   "$(grep -i kbd "$s/leds.txt" | tr '\n' ' ')${s:+ (no LED device; EC handles Fn+F8)}"
 
+# ---- GPIO / interrupts (the sensor hub's GpioInt, spi-hid)
+{ mountpoint -q /sys/kernel/debug || mount -t debugfs none /sys/kernel/debug
+  echo "== /sys/kernel/debug/gpio"; cat /sys/kernel/debug/gpio
+  echo "== spi-hid / gpio / eint lines in /proc/interrupts"; grep -iE 'spi|hid|gpio|eint|mtk' /proc/interrupts
+  echo "== kernel lines"; grep -iE 'spi.?hid|MSFW|PNP0C51|eint|gpio' "$dir/dmesg.txt"
+  echo "== spi devices"; ls -l /sys/bus/spi/devices/ 2>&1; } >"$s/gpio-irq.txt" 2>&1
+
 # ---- sensors (accelerometer, hinge, light), tablet mode
 { for d in /sys/bus/iio/devices/iio:device*; do
     [ -e "$d/name" ] && echo "${d##*/}: $(cat "$d/name")"
   done; } >"$s/sensors.txt" 2>&1
 as_user timeout 5 monitor-sensor >"$s/sensors-proxy.txt" 2>&1   # iio-sensor-proxy's view, 5 s
+check "sensor hub (spi-hid)" "$(ls -d /sys/bus/spi/drivers/spi_hid_acpi/spi-* >/dev/null 2>&1 && echo OK || echo MISSING)" \
+  "$(grep -m1 -E 'anvesana: spi->irq|Missing IRQ|spi_hid' "$dir/dmesg.txt" | sed 's/^\[[^]]*\] //')"
 check "IIO sensors" "$(grep -q 'iio:device' "$s/sensors.txt" && echo OK || echo MISSING)" \
   "$(grep 'iio:device' "$s/sensors.txt" | cut -d' ' -f2 | tr '\n' ' ')"
 check "accelerometer" "$(grep -q 'Has accelerometer' "$s/sensors-proxy.txt" && echo OK || echo MISSING)" \
