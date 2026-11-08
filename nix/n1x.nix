@@ -8,6 +8,9 @@
 #   NVIDIA      615.78.08 open modules, nvidia-drm modeset + fbdev, with the aarch64 DRM
 #               mapping fix and the PR #1368 leak fix; `n1x.nvidiaDisplay = false`
 #               falls back to simpledrm
+#               (without the ProArt tuple's vblank=1: on bbaum-pc-7 it stalls every page flip)
+#   audio       NVIDIA's MT8901 SoundWire UCM profiles (alsa-ucm-conf PR 862, not yet released);
+#               bbaum-pc-7 is 2x RT1320 + RT712, which they cover
 #   CPU         CPPC autonomous frequency selection, as Windows does
 #   initrd      NVMe, the MediaTek xHCI and the I2C/USB input drivers
 #   sleep       lid / suspend keys ignored: suspend is not qualified on N1X Linux
@@ -31,6 +34,26 @@ let
       });
     };
   });
+  # alsa-lib finds no profile for the `mt8901-soundwir` card in alsa-ucm-conf 1.2.15.3, so
+  # PipeWire only offers a dummy output and the kernel logs "no backend DAIs enabled for DL0_FE"
+  # (bbaum-pc-7, 2026-11-07). NVIDIA's profiles from alsa-ucm-conf PR 862 (open, head 7d3555a)
+  # pick a file by SoundWire topology; bbaum-pc-7 enumerates 2x RT1320 (uid 0, 1) on link 0 and
+  # an RT712 on link 1, i.e. HiFi-rt1320x2-rt712.conf. Added beside the released set and
+  # selected with ALSA_CONFIG_UCM2, so nothing that links alsa-lib is rebuilt.
+  mt8901Ucm = pkgs.fetchFromGitHub {
+    owner = "dcemin-nv";
+    repo = "alsa-ucm-conf";
+    rev = "7d3555a754936ce073ce5fe3d623294d81dd5c66";
+    hash = "sha256-nW4hIa/0cogeuxf3nrhRUugpQQvmW3LFq8UBff351II=";
+  };
+  ucm2 = pkgs.runCommand "alsa-ucm-conf-n1x" { } ''
+    mkdir -p $out/share/alsa
+    cp -r --no-preserve=mode ${pkgs.alsa-ucm-conf}/share/alsa/ucm2 $out/share/alsa/ucm2
+    cp -r --no-preserve=mode ${mt8901Ucm}/ucm2/MediaTek/mt8901-soundwir $out/share/alsa/ucm2/MediaTek/
+    mkdir -p $out/share/alsa/ucm2/conf.d/mt8901-soundwir
+    ln -s ../../MediaTek/mt8901-soundwir/mt8901-soundwir.conf \
+      $out/share/alsa/ucm2/conf.d/mt8901-soundwir/mt8901-soundwir.conf
+  '';
   # ProArt Arch build, 03-system/power/payload/assets/hardware/power/n1x-cppc-init.py:
   # restore each policy's full range, then let the firmware pick CPU clocks.
   cppcInit = pkgs.writeText "n1x-cppc-init.py" ''
@@ -60,8 +83,17 @@ in
     };
     nvidiaVblank = lib.mkOption {
       type = lib.types.bool;
-      default = true;
+      # Off: on bbaum-pc-7 GNOME on nvidia-drm lagged by minutes with vblank=1 and ran
+      # smoothly without it (A/B boots 2026-11-07, only /sys/module/nvidia_drm/parameters/vblank
+      # differed). The ASUS ProArt's qualified tuple sets it.
+      default = false;
       description = "Pass the ProArt tuple's `nvidia_drm vblank=1` (only with nvidiaDisplay).";
+    };
+    alsaUcm2 = lib.mkOption {
+      type = lib.types.str;
+      readOnly = true;
+      default = "${ucm2}/share/alsa/ucm2";
+      description = "ALSA UCM2 directory with the MT8901 SoundWire profiles (for ALSA_CONFIG_UCM2).";
     };
   };
 
@@ -100,9 +132,13 @@ in
         usePersistenced = false;
       });
     };
-    # The ProArt's qualified tuple also sets vblank=1 (h7607a-nvidia.conf); an
-    # unknown parameter is logged and ignored, so it is harmless if 615 lacks it.
+    # The ProArt's qualified tuple also sets vblank=1 (h7607a-nvidia.conf); off by default here.
     boot.extraModprobeConfig = lib.mkIf (cfg.nvidiaDisplay && cfg.nvidiaVblank) "options nvidia_drm vblank=1";
+
+    # ---------------------------------------------------------------- audio
+    environment.sessionVariables.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
+    systemd.user.services.pipewire.environment.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
+    systemd.user.services.wireplumber.environment.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;
 
     # ---------------------------------------------------------------- power
     systemd.services.n1x-cppc-init = {

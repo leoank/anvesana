@@ -170,9 +170,17 @@ run "$s/audio.txt" arecord -l
 as_user pactl info >>"$s/audio.txt" 2>&1
 as_user pactl list short sinks >>"$s/audio.txt" 2>&1
 as_user pactl list short sources >>"$s/audio.txt" 2>&1
+ls /sys/bus/soundwire/devices >"$s/audio-soundwire.txt" 2>&1
+for c in /proc/asound/card[0-9]*; do
+  n=${c##*card}; echo "===== card $n: $(cat "$c/id")"; amixer -c "$n" contents 2>&1
+done >"$s/audio-mixer.txt"
+echo "ALSA_CONFIG_UCM2=${ALSA_CONFIG_UCM2:-unset}" >"$s/audio-ucm.txt"
+run "$s/audio-ucm.txt" alsaucm listcards
+as_user wpctl status >>"$s/audio.txt" 2>&1
 check "audio cards" "$(grep -q '^ *[0-9]' /proc/asound/cards 2>/dev/null && echo OK || echo MISSING)" \
   "$(grep '^ *[0-9]' /proc/asound/cards 2>/dev/null | sed 's/  */ /g' | tr '\n' ';')"
-check "audio sinks" INFO "$(as_user pactl list short sinks 2>/dev/null | awk '{print $2}' | tr '\n' ' ')"
+sinks=$(as_user pactl list short sinks 2>/dev/null | awk '{print $2}' | tr '\n' ' ')
+check "audio sinks" "$(printf '%s' "$sinks" | grep -qE 'alsa_output' && echo OK || echo MISSING)" "${sinks:-none}"
 
 # ---- network, bluetooth
 run "$s/network.txt" ip -br addr

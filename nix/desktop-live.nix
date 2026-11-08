@@ -15,7 +15,6 @@
 #                  that image from a stick written directly, not Ventoy), else acpi_osi="!Windows 2022"
 #   osi            acpi_osi="!Windows 2022", all five hidden devices (only in an override build)
 #   safe-graphics  as default, but the firmware framebuffer (simpledrm) instead of nvidia-drm
-#   no-vblank      as default, without nvidia_drm vblank=1 (A/B for the GNOME lag)
 #   serial         as default, with the console also on ttyAMA0 (QEMU, or a serial adapter)
 # Specialisations inherit the default entry's settings, so each adds only its difference.
 { config, lib, pkgs, modulesPath, ... }:
@@ -32,6 +31,8 @@ let
       bluez pciutils usbutils libinput alsa-utils pulseaudio v4l-utils upower power-profiles-daemon
       iio-sensor-proxy mesa-demos vulkan-tools gnome-shell
     ] ++ [ (config.hardware.nvidia.package.bin or config.hardware.nvidia.package) ];   # nvidia-smi
+    # The N1X UCM profiles (nix/n1x.nix); system services do not get session variables.
+    runtimeEnv.ALSA_CONFIG_UCM2 = config.n1x.alsaUcm2;
     # Best-effort probes: no `set -e` (the script sets -u itself); shellcheck stays advisory.
     bashOptions = [ ];
     checkPhase = "";
@@ -74,13 +75,6 @@ in
       n1x.nvidiaDisplay = false;
       environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-safe-graphics\n";
       isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, safe graphics (simpledrm)";
-    };
-    # A/B for the GNOME lag on bbaum-pc-7 (2026-11-07): the same as default without the ProArt
-    # tuple's `nvidia_drm vblank=1`, in case every page flip waits on a vblank that never comes.
-    no-vblank.configuration = {
-      n1x.nvidiaVblank = false;
-      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-no-vblank\n";
-      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, nvidia_drm without vblank=1";
     };
     serial.configuration = {
       # The last console= gets /dev/console, so systemd's status lines reach the serial port too;
