@@ -30,4 +30,16 @@ requests every EINT through its GPIO, so the fix is in the kernel's pinctrl/EINT
 for EINTs without a GPIO, and an ACPI `GpioInt` lookup that falls back to the EINT domain), not
 in this driver.
 
+Fix being tested (2026-11-09), in two parts:
+
+- Kernel: `nix/patches/0002-pinctrl-mediatek-eint-allow-EINTs-that-have-no-GPIO.patch` lets
+  `mtk-eint` hand out an EINT with no GPIO (no pin to lock or mux; both-edge refused, since it is
+  emulated by reading the pin). The EINT domain already maps all 209 EINTs: GIO0's `_CRS` has 15
+  memory ranges, 11 for pin registers and 4 for EINT blocks, and EINT 181-208 are block 3
+  (0x1C54A000). All four blocks share GIO0's one interrupt (GIC 0x233); whether block 3 really
+  raises it is what the laptop test shows.
+- This driver: when gpiolib fails, `spi_hid_acpi_eint_irq()` reads the first `GpioInt` from
+  `_CRS`, finds the controller's IRQ domain by its ACPI node, maps the pin number (= EINT
+  number) and sets the trigger from the descriptor (edge, active low: falling).
+
 Licence: GPL-2.0 (SPDX headers in each file).

@@ -24,6 +24,9 @@
 #include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/gpio/consumer.h>
+#include <linux/irq.h>
+#include <linux/irqdomain.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/reset.h>
@@ -188,6 +191,79 @@ static void spi_hid_acpi_sleep_minimal_reset_delay(struct spihid_ops *ops)
 	fsleep(1000 * conf->minimal_reset_delay_ms);
 }
 
+/*
+ * anvesana (not upstream): the first GpioInt in _CRS, resolved without gpiolib. gpiolib needs a
+ * GPIO for the pin; an interrupt-only input of the GPIO controller (MediaTek EINT 182-208 on
+ * MT8901) has none. The controller's IRQ domain, registered on its ACPI node, still maps the pin
+ * number (= EINT number) to an interrupt. Needs the kernel's mtk-eint to accept such an EINT
+ * (nix/patches/0002-pinctrl-mediatek-eint-allow-EINTs-that-have-no-GPIO.patch).
+ */
+struct spi_hid_acpi_gpioint {
+	bool found;
+	char path[64];
+	u16 pin;
+	u8 triggering, polarity;
+};
+
+static int spi_hid_acpi_find_gpioint(struct acpi_resource *ares, void *data)
+{
+	struct spi_hid_acpi_gpioint *g = data;
+	struct acpi_resource_gpio *agpio;
+
+	if (g->found || !acpi_gpio_get_irq_resource(ares, &agpio) || !agpio->pin_table_length ||
+	    !agpio->resource_source.string_ptr)
+		return 1;
+	strscpy(g->path, agpio->resource_source.string_ptr, sizeof(g->path));
+	g->pin = agpio->pin_table[0];
+	g->triggering = agpio->triggering;
+	g->polarity = agpio->polarity;
+	g->found = true;
+	return 1;
+}
+
+static int spi_hid_acpi_eint_irq(struct device *dev, struct acpi_device *adev)
+{
+	struct spi_hid_acpi_gpioint g = { };
+	struct acpi_device *ctrl;
+	struct irq_domain *domain;
+	acpi_handle handle;
+	LIST_HEAD(res);
+	unsigned int type;
+	int irq, ret;
+
+	ret = acpi_dev_get_resources(adev, &res, spi_hid_acpi_find_gpioint, &g);
+	if (ret < 0)
+		return ret;
+	acpi_dev_free_resource_list(&res);
+	if (!g.found)
+		return -ENOENT;
+
+	if (ACPI_FAILURE(acpi_get_handle(NULL, g.path, &handle)))
+		return -ENODEV;
+	ctrl = acpi_fetch_acpi_dev(handle);
+	if (!ctrl)
+		return -ENODEV;
+	domain = irq_find_matching_fwnode(acpi_fwnode_handle(ctrl), DOMAIN_BUS_ANY);
+	if (!domain)
+		return -EPROBE_DEFER;		/* the GPIO controller has not probed yet */
+
+	irq = irq_create_mapping(domain, g.pin);	/* existing mapping if there is one */
+	if (!irq)
+		return -ENXIO;
+
+	if (g.triggering == ACPI_EDGE_SENSITIVE)
+		type = g.polarity == ACPI_ACTIVE_LOW ? IRQ_TYPE_EDGE_FALLING :
+		       g.polarity == ACPI_ACTIVE_BOTH ? IRQ_TYPE_EDGE_BOTH : IRQ_TYPE_EDGE_RISING;
+	else
+		type = g.polarity == ACPI_ACTIVE_LOW ? IRQ_TYPE_LEVEL_LOW : IRQ_TYPE_LEVEL_HIGH;
+	ret = irq_set_irq_type(irq, type);
+	dev_info(dev, "anvesana: GpioInt %s pin %u -> IRQ %d (domain %s), type 0x%x: %d\n",
+		 g.path, g.pin, irq, domain->name, type, ret);
+	if (ret)
+		return ret;
+	return irq;
+}
+
 static int spi_hid_acpi_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
@@ -227,6 +303,8 @@ static int spi_hid_acpi_probe(struct spi_device *spi)
 	/*
 	 * anvesana (bbaum-pc-7, not upstream): the SPI core turns a failed GpioInt lookup into
 	 * spi->irq = 0 without saying why. Ask again here, log the result, and use it if valid.
+	 * On this machine it fails with -EINVAL: the pin is an interrupt-only EINT with no GPIO,
+	 * so fall back to the controller's interrupt domain (spi_hid_acpi_eint_irq).
 	 */
 	if (spi->irq <= 0) {
 		int irq = acpi_dev_gpio_irq_get(adev, 0);
@@ -234,6 +312,12 @@ static int spi_hid_acpi_probe(struct spi_device *spi)
 		dev_info(dev, "anvesana: spi->irq=%d, acpi_dev_gpio_irq_get(0)=%d\n", spi->irq, irq);
 		if (irq == -EPROBE_DEFER)
 			return irq;
+		if (irq <= 0) {
+			irq = spi_hid_acpi_eint_irq(dev, adev);
+			dev_info(dev, "anvesana: GpioInt via the controller's IRQ domain: %d\n", irq);
+			if (irq == -EPROBE_DEFER)
+				return irq;
+		}
 		if (irq > 0)
 			spi->irq = irq;
 	}
