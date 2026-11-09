@@ -169,7 +169,8 @@ check "keyboard backlight" "$(grep -qi kbd "$s/leds.txt" && echo OK || echo INFO
   done; } >"$s/sensors.txt" 2>&1
 as_user timeout 5 monitor-sensor >"$s/sensors-proxy.txt" 2>&1   # iio-sensor-proxy's view, 5 s
 check "sensor hub (spi-hid)" "$(ls -d /sys/bus/spi/drivers/spi_hid_acpi/spi-* >/dev/null 2>&1 && echo OK || echo MISSING)" \
-  "$(grep -m1 -E 'anvesana: spi->irq|Missing IRQ|spi_hid' "$dir/dmesg.txt" | sed 's/^\[[^]]*\] //')"
+  "$(grep -E 'spi-MSFW1111|EINT[0-9]+ has no GPIO' "$dir/dmesg.txt" | tail -1 | sed 's/^\[[^]]*\] //')"
+check "sensor hub IRQ" INFO "$(grep -E 'spi-MSFW1111|MSFW1111' /proc/interrupts | tr -s ' ' | head -1)"
 check "IIO sensors" "$(grep -q 'iio:device' "$s/sensors.txt" && echo OK || echo MISSING)" \
   "$(grep 'iio:device' "$s/sensors.txt" | cut -d' ' -f2 | tr '\n' ' ')"
 check "accelerometer" "$(grep -q 'Has accelerometer' "$s/sensors-proxy.txt" && echo OK || echo MISSING)" \
