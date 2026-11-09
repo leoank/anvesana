@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ankur Kumar <ankit@bodygram.com>
+Date: Mon, 9 Nov 2026 10:56:07 +0000
+Subject: [PATCH] pinctrl: mediatek: eint: allow EINTs that have no GPIO
+
+MT8901 has 209 EINTs but 182 GPIOs; EINT 182-208 are interrupt-only inputs.
+The ACPI firmware of the MSI Prestige N16 Flip AI+ routes the sensor hub's
+GpioInt to EINT 190. Requesting such an EINT failed in
+irq_request_resources, because there is no GPIO to lock or to switch to
+EINT mode. Accept it as an interrupt-only line, and refuse both-edge
+triggering for it, which is emulated by reading the pin level.
+---
+ drivers/pinctrl/mediatek/mtk-eint.c | 29 +++++++++++++++++++++++------
+ 1 file changed, 23 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/pinctrl/mediatek/mtk-eint.c b/drivers/pinctrl/mediatek/mtk-eint.c
+index 461f1b131..a4246f728 100644
+--- a/drivers/pinctrl/mediatek/mtk-eint.c
++++ b/drivers/pinctrl/mediatek/mtk-eint.c
+@@ -242,10 +242,20 @@ static int mtk_eint_set_type(struct irq_data *d, unsigned int type)
+ 		return -EINVAL;
+ 	}
+ 
+-	if ((type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH)
++	if ((type & IRQ_TYPE_EDGE_BOTH) == IRQ_TYPE_EDGE_BOTH) {
++		struct gpio_chip *gpio_c;
++		unsigned int gpio_n;
++
++		/* Both-edge is emulated by reading the pin level: needs a GPIO. */
++		if (eint->gpio_xlate->get_gpio_n(eint->pctl, d->hwirq, &gpio_n, &gpio_c)) {
++			dev_err(eint->dev, "EINT%lu has no GPIO; both-edge triggering is not possible\n",
++				d->hwirq);
++			return -EINVAL;
++		}
+ 		eint->pins[d->hwirq].dual_edge = 1;
+-	else
++	} else {
+ 		eint->pins[d->hwirq].dual_edge = 0;
++	}
+ 
+ 	if (!mtk_eint_get_mask(eint, d->hwirq)) {
+ 		mtk_eint_mask(d);
+@@ -319,8 +329,14 @@ static int mtk_eint_irq_request_resources(struct irq_data *d)
+ 	err = eint->gpio_xlate->get_gpio_n(eint->pctl, d->hwirq,
+ 					   &gpio_n, &gpio_c);
+ 	if (err < 0) {
+-		dev_err(eint->dev, "Can not find pin\n");
+-		return err;
++		/*
++		 * Some EINTs have no GPIO behind them (on MT8901, EINT 182-208
++		 * of the 209). There is no pin to lock or to switch to EINT
++		 * mode: the line is an interrupt input only.
++		 */
++		dev_info(eint->dev, "EINT%lu has no GPIO; using it as an interrupt-only line\n",
++			 irqd_to_hwirq(d));
++		return 0;
+ 	}
+ 
+ 	err = gpiochip_lock_as_irq(gpio_c, gpio_n);
+@@ -345,8 +361,9 @@ static void mtk_eint_irq_release_resources(struct irq_data *d)
+ 	struct gpio_chip *gpio_c;
+ 	unsigned int gpio_n;
+ 
+-	eint->gpio_xlate->get_gpio_n(eint->pctl, d->hwirq, &gpio_n,
+-				     &gpio_c);
++	if (eint->gpio_xlate->get_gpio_n(eint->pctl, d->hwirq, &gpio_n,
++					 &gpio_c))
++		return;		/* interrupt-only EINT: nothing was locked */
+ 
+ 	gpiochip_unlock_as_irq(gpio_c, gpio_n);
+ }

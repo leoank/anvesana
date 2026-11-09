@@ -42,5 +42,8 @@ linuxManualConfig {
     # as CONFIG_SYSTEM_TRUSTED_KEYS.
     { name = "ubuntu-linux-nvidia-7.0-1022.23"; patch = ubuntuDelta; }
     { name = "arm64-bound-acpi-override-allocation"; patch = ./patches/0001-arm64-bound-acpi-override-allocation.patch; }
+    # The sensor hub's interrupt is EINT 190, which has no GPIO (MT8901: 209 EINTs, 182 GPIOs);
+    # see nix/spi-hid/README.md.
+    { name = "pinctrl-mediatek-eint-without-gpio"; patch = ./patches/0002-pinctrl-mediatek-eint-allow-EINTs-that-have-no-GPIO.patch; }
   ];
 }
