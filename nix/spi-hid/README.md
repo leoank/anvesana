@@ -21,4 +21,13 @@ ACPI `GpioInt` with `acpi_dev_gpio_irq_get()` and turns any error into `spi->irq
 reason is lost. The probe now asks again, logs both values, and uses the IRQ if the second
 lookup succeeds.
 
+Result (2026-11-09): `acpi_dev_gpio_irq_get(0)` returns -EINVAL. The `GpioInt` pin, 0xBE (190),
+is past the end of the GPIO chip: the MT8901 pinctrl driver has 182 GPIOs (0-181) but 209
+external interrupts (`ap_num`). The pins that are both (touchpad 43, touchscreen 31, keyboard 33)
+have GPIO number = EINT number, which is how Windows numbers `GpioInt` pins on this SoC; EINT
+190 is interrupt-only, with no GPIO behind it. gpiolib cannot describe it, and `mtk-eint`
+requests every EINT through its GPIO, so the fix is in the kernel's pinctrl/EINT code (support
+for EINTs without a GPIO, and an ACPI `GpioInt` lookup that falls back to the EINT domain), not
+in this driver.
+
 Licence: GPL-2.0 (SPDX headers in each file).
