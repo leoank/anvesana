@@ -54,6 +54,67 @@ let
     ln -s ../../MediaTek/mt8901-soundwir/mt8901-soundwir.conf \
       $out/share/alsa/ucm2/conf.d/mt8901-soundwir/mt8901-soundwir.conf
   '';
+  # The Speakers (DSP) client's whole config (see the audio section): the modules a filter-chain
+  # client needs, as in pipewire's own filter-chain.conf, then the graph.
+  speakerDspConf = pkgs.writeText "n1x-speaker-dsp.conf" (builtins.toJSON {
+    "context.properties" = { "log.level" = 3; };
+    "context.spa-libs" = {
+      "audio.convert.*" = "audioconvert/libspa-audioconvert";
+      "support.*" = "support/libspa-support";
+    };
+    "context.modules" = [
+      { name = "libpipewire-module-rt"; args = { }; flags = [ "ifexists" "nofail" ]; }
+      { name = "libpipewire-module-protocol-native"; }
+      { name = "libpipewire-module-client-node"; }
+      { name = "libpipewire-module-adapter"; }
+      { name = "libpipewire-module-filter-chain"; args = {
+          "node.description" = "Speakers (DSP)";
+          "media.name" = "Speakers (DSP)";
+          "filter.graph" = {
+            nodes = [
+              { type = "lv2"; plugin = "https://chadmed.au/bankstown"; name = "bassex";
+                control = { bypass = 0; amt = 1.2; sat_second = 1.3; sat_third = 1.5; blend = 1.0;
+                            ceil = 200.0; floor = 20.0; final_hp = 120.0; }; }
+              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/loud_comp_mono"; name = "ell";
+                control = { enabled = 1; input = 1.0; fft = 2; }; }
+              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/loud_comp_mono"; name = "elr";
+                control = { enabled = 1; input = 1.0; fft = 2; }; }
+              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/compressor_stereo"; name = "lim";
+                control = { sla = 5.0; al = 1.0; at = 1.0; rt = 100.0; cr = 15.0; kn = 0.5; }; }
+            ];
+            links = [
+              { output = "bassex:out_l"; input = "ell:in"; }
+              { output = "bassex:out_r"; input = "elr:in"; }
+              { output = "ell:out"; input = "lim:in_l"; }
+              { output = "elr:out"; input = "lim:in_r"; }
+            ];
+            inputs = [ "bassex:in_l" "bassex:in_r" ];
+            outputs = [ "lim:out_l" "lim:out_r" ];
+            "capture.volumes" = [
+              { control = "ell:volume"; min = -47.5; max = 0.0; scale = "cubic"; }
+              { control = "elr:volume"; min = -47.5; max = 0.0; scale = "cubic"; }
+            ];
+          };
+          "capture.props" = {
+            "node.name" = "audio_effect.n1x-speakers";
+            "media.class" = "Audio/Sink";
+            "audio.channels" = 2;
+            "audio.position" = [ "FL" "FR" ];
+            "priority.session" = 500;          # below the ALSA sinks: opt-in, not the default
+            "state.default-volume" = 0.343;
+            "device.icon-name" = "audio-speakers";
+          };
+          "playback.props" = {
+            "node.name" = "effect_output.n1x-speakers";
+            "target.object" = "alsa_output.platform-mtk_sdw_mc.HiFi__Speaker__sink";
+            "node.dont-fallback" = true;
+            "node.passive" = true;
+            "audio.channels" = 2;
+            "audio.position" = [ "FL" "FR" ];
+          };
+        }; }
+    ];
+  });
   # ProArt Arch build, 03-system/power/payload/assets/hardware/power/n1x-cppc-init.py:
   # restore each policy's full range, then let the firmware pick CPU clocks.
   cppcInit = pkgs.writeText "n1x-cppc-init.py" ''
@@ -99,6 +160,16 @@ in
         conservatively by ear. Low priority, so the plain speaker output stays the default.
       '';
     };
+    lps0 = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Load n1x-lps0, which calls the firmware's Microsoft LPS0 _DSM around suspend-to-idle as
+        Windows does (Linux does it only on x86). On bbaum-pc-7 function 7/8 set and clear bit 1
+        of EC byte 0xEC: the EC's "in standby" state (keyboard backlight off). An EC write by
+        firmware, so opt-in (ADR-0008; the author agreed to try it on 2026-11-09).
+      '';
+    };
     alsaUcm2 = lib.mkOption {
       type = lib.types.str;
       readOnly = true;
@@ -120,8 +191,11 @@ in
     # HID over SPI (not in Linux 7.0): the sensor hub (accelerometer, ambient light) is MSFW1111 /
     # PNP0C51 on SPI3. spi-hid-acpi matches it by ACPI ID; loaded explicitly as well, since it is
     # new on this platform and its absence should show in the logs. See nix/spi-hid/README.md.
-    boot.extraModulePackages = [ (config.boot.kernelPackages.callPackage ./spi-hid.nix { }) ];
-    boot.kernelModules = [ "spi-hid-acpi" ];
+    boot.extraModulePackages = [
+      (config.boot.kernelPackages.callPackage ./spi-hid.nix { })
+      (config.boot.kernelPackages.callPackage ./n1x-lps0.nix { })   # loaded only with n1x.lps0
+    ];
+    boot.kernelModules = [ "spi-hid-acpi" ] ++ lib.optional cfg.lps0 "n1x-lps0";
     # Suspend: the firmware offers "deep" (PSCI system suspend) and Linux picks it by default, but
     # Windows on this machine only uses Modern Standby (s2idle-like), so deep is the untested path.
     # The first suspend on Linux, in deep, never resumed (2026-11-09).
@@ -168,59 +242,26 @@ in
     # limiter (asahi's woofer_lim settings). Bankstown's final_hp keeps sub-120 Hz content off
     # the microspeakers. The RT1320s run on their ROM defaults on Linux (MSI's tuning is in an
     # obfuscated Realtek container on Windows), so the limiter is a software safety net.
-    services.pipewire.extraConfig.pipewire."60-n1x-speaker-dsp" = lib.mkIf cfg.speakerDsp {
-      "context.modules" = [ {
-        name = "libpipewire-module-filter-chain";
-        flags = [ "nofail" ];
-        args = {
-          "node.description" = "Speakers (DSP)";
-          "media.name" = "Speakers (DSP)";
-          "filter.graph" = {
-            nodes = [
-              { type = "lv2"; plugin = "https://chadmed.au/bankstown"; name = "bassex";
-                control = { bypass = 0; amt = 1.2; sat_second = 1.3; sat_third = 1.5; blend = 1.0;
-                            ceil = 200.0; floor = 20.0; final_hp = 120.0; }; }
-              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/loud_comp_mono"; name = "ell";
-                control = { enabled = 1; input = 1.0; fft = 2; }; }
-              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/loud_comp_mono"; name = "elr";
-                control = { enabled = 1; input = 1.0; fft = 2; }; }
-              { type = "lv2"; plugin = "http://lsp-plug.in/plugins/lv2/compressor_stereo"; name = "lim";
-                control = { sla = 5.0; al = 1.0; at = 1.0; rt = 100.0; cr = 15.0; kn = 0.5; }; }
-            ];
-            links = [
-              { output = "bassex:out_l"; input = "ell:in"; }
-              { output = "bassex:out_r"; input = "elr:in"; }
-              { output = "ell:out"; input = "lim:in_l"; }
-              { output = "elr:out"; input = "lim:in_r"; }
-            ];
-            inputs = [ "bassex:in_l" "bassex:in_r" ];
-            outputs = [ "lim:out_l" "lim:out_r" ];
-            "capture.volumes" = [
-              { control = "ell:volume"; min = -47.5; max = 0.0; scale = "cubic"; }
-              { control = "elr:volume"; min = -47.5; max = 0.0; scale = "cubic"; }
-            ];
-          };
-          "capture.props" = {
-            "node.name" = "audio_effect.n1x-speakers";
-            "media.class" = "Audio/Sink";
-            "audio.channels" = 2;
-            "audio.position" = [ "FL" "FR" ];
-            "priority.session" = 500;          # below the ALSA sinks: opt-in, not the default
-            "state.default-volume" = 0.343;
-            "device.icon-name" = "audio-speakers";
-          };
-          "playback.props" = {
-            "node.name" = "effect_output.n1x-speakers";
-            "target.object" = "alsa_output.platform-mtk_sdw_mc.HiFi__Speaker__sink";
-            "node.dont-fallback" = true;
-            "node.passive" = true;
-            "audio.channels" = 2;
-            "audio.position" = [ "FL" "FR" ];
-          };
-        };
-      } ];
+    #
+    # It runs as its own PipeWire client (n1x-speaker-dsp.service, like pipewire's filter-chain
+    # service) with a config given by path, not as a drop-in of the main daemon: on the laptop the
+    # daemon never loaded the drop-in and logged nothing (2026-11-08/09), although the same file
+    # loads in a test daemon. Its own unit also puts any error in its own journal.
+    systemd.user.services.n1x-speaker-dsp = lib.mkIf cfg.speakerDsp {
+      description = "Speakers (DSP) filter-chain for the N1X laptop speakers";
+      wantedBy = [ "pipewire.service" ];
+      after = [ "pipewire.service" ];
+      bindsTo = [ "pipewire.service" ];
+      environment = {
+        LV2_PATH = lib.makeSearchPath "lib/lv2" [ pkgs.bankstown-lv2 pkgs.lsp-plugins ];
+        PIPEWIRE_DEBUG = "3";                    # info: plugin loading shows in the journal
+      };
+      serviceConfig = {
+        ExecStart = "${config.services.pipewire.package}/bin/pipewire -c ${speakerDspConf}";
+        Restart = "on-failure";
+        RestartSec = 5;
+      };
     };
-    services.pipewire.extraLv2Packages = lib.mkIf cfg.speakerDsp [ pkgs.bankstown-lv2 pkgs.lsp-plugins ];
 
     # (ALSA_CONFIG_UCM2 is in environment.sessionVariables above)
     systemd.user.services.pipewire.environment.ALSA_CONFIG_UCM2 = cfg.alsaUcm2;

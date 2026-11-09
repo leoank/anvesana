@@ -16,6 +16,8 @@
 #                  that image from a stick written directly, not Ventoy), else acpi_osi="!Windows 2022"
 #   osi            acpi_osi="!Windows 2022", all five hidden devices (only in an override build)
 #   safe-graphics  as default, but the firmware framebuffer (simpledrm) instead of nvidia-drm
+#   standby-notify as default, plus n1x-lps0: the firmware's Modern Standby calls around suspend
+#   vblank         as default, with nvidia_drm vblank=1 (retest under mutter 50)
 #   serial         as default, with the console also on ttyAMA0 (QEMU, or a serial adapter)
 # Specialisations inherit the default entry's settings, so each adds only its difference.
 { config, lib, pkgs, modulesPath, ... }:
@@ -30,7 +32,7 @@ let
     runtimeInputs = with pkgs; [
       coreutils util-linux systemd gnugrep gnused gawk procps kmod iproute2 iw networkmanager
       bluez pciutils usbutils libinput alsa-utils pulseaudio v4l-utils upower power-profiles-daemon
-      iio-sensor-proxy mesa-demos vulkan-tools gnome-shell libva-utils pipewire jq
+      iio-sensor-proxy mesa-demos vulkan-tools gnome-shell libva-utils pipewire jq drm_info mutter glib
     ] ++ [ (config.hardware.nvidia.package.bin or config.hardware.nvidia.package) ];   # nvidia-smi
     # The N1X UCM profiles (nix/n1x.nix); system services do not get session variables.
     runtimeEnv.ALSA_CONFIG_UCM2 = config.n1x.alsaUcm2;
@@ -53,6 +55,50 @@ let
     exec = "${collectInteractive}/bin/anvesana-collect-app";
     categories = [ "System" ];
   };
+
+  # Refresh rate by power source: 120 Hz on AC, 60 Hz on battery, each as the variable refresh
+  # rate mode ("…+vrr", panel Adaptive Sync 30-120 Hz) when mutter offers one, else fixed. GNOME
+  # has no such switch itself; Windows runs this panel at 60 Hz on battery. `vrr=off` in
+  # ~/.config/n1x-display-power keeps the fixed modes. Only with the built-in panel alone: a
+  # `gdctl set` naming one monitor would turn every other one off.
+  displayPower = pkgs.writeShellScript "n1x-display-power" ''
+    conf=''${XDG_CONFIG_HOME:-$HOME/.config}/n1x-display-power
+    last=
+    apply() {
+      local show conns conn scale res hz modes mode vrr=on
+      show=$(gdctl show --modes 2>&1) || { echo "gdctl show failed: $show"; return 1; }
+      conns=$(printf '%s\n' "$show" | grep -oE '\b(eDP|DP|HDMI|DVI|VGA)-[0-9]+' | sort -u)
+      if [ "$(printf '%s\n' "$conns" | grep -c .)" != 1 ]; then
+        echo "monitors: $(echo $conns); leaving the configuration alone"; last=; return 0
+      fi
+      conn=$conns
+      scale=$(printf '%s\n' "$show" | grep -m1 -oE 'Scale: [0-9.]+' | grep -oE '[0-9.]+$')
+      modes=$(printf '%s\n' "$show" | grep -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?' | sort -u)
+      res=$(printf '%s\n' "$modes" | awk -F'[x@]' '{print $1*$2, $1 "x" $2}' | sort -n | tail -1 | cut -d' ' -f2)
+      if [ "$(gdbus call --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower \
+          --method org.freedesktop.DBus.Properties.Get org.freedesktop.UPower OnBattery 2>/dev/null)" = "(<true>,)" ]; then
+        hz=60; else hz=120; fi
+      grep -qx 'vrr=off' "$conf" 2>/dev/null && vrr=off
+      pick() { printf '%s\n' "$modes" | grep -E "^$res@" | grep $1 -E '\+vrr$' \
+        | awk -F'[@+]' -v hz="$hz" '{d = $2 - hz; if (d < 0) d = -d; if (d < 0.5) print}' | head -1; }
+      mode=
+      [ "$vrr" = on ] && mode=$(pick "")
+      [ -n "$mode" ] || mode=$(pick -v)
+      [ -n "$mode" ] || { echo "no $res mode near $hz Hz in: $(echo $modes)"; return 0; }
+      [ "$mode" = "$last" ] && return 0
+      if gdctl set --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode"; then
+        echo "$conn -> $mode (scale ''${scale:-preferred}; $([ "$hz" = 60 ] && echo battery || echo AC); vrr $vrr)"
+        last=$mode
+      else
+        echo "gdctl set $conn $mode failed"
+      fi
+    }
+    for _ in $(seq 30); do gdctl show >/dev/null 2>&1 && break; sleep 1; done
+    apply
+    # Re-applied when UPower's OnBattery changes (not on monitor hotplug).
+    gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower |
+      while read -r line; do case $line in *OnBattery*) apply ;; esac; done
+  '';
 in
 {
   imports = [
@@ -76,6 +122,18 @@ in
       n1x.nvidiaDisplay = false;
       environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-safe-graphics\n";
       isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, safe graphics (simpledrm)";
+    };
+    standby-notify.configuration = {
+      n1x.lps0 = true;
+      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-standby-notify\n";
+      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, tell firmware about standby (LPS0)";
+    };
+    # Retest of nvidia_drm vblank=1: it stalled every page flip under mutter 48/49; mutter 50.1
+    # fixed an NVIDIA freeze (!5021) that may have been the same thing.
+    vblank.configuration = {
+      n1x.nvidiaVblank = true;
+      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-vblank\n";
+      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, nvidia_drm vblank=1 (retest)";
     };
     serial.configuration = {
       # The last console= gets /dev/console, so systemd's status lines reach the serial port too;
@@ -104,6 +162,19 @@ in
     [org.gnome.shell]
     favorite-apps=[ 'anvesana-collect.desktop', 'org.gnome.Console.desktop', 'firefox.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop' ]
   '';
+  # OLED: dark pixels draw less power, so dark by default (Settings > Appearance changes it).
+  services.desktopManager.gnome.extraGSettingsOverrides = ''
+    [org.gnome.desktop.interface]
+    color-scheme='prefer-dark'
+  '';
+  systemd.user.services.n1x-display-power = {
+    description = "Refresh rate by power source (120 Hz AC, 60 Hz battery, VRR when offered)";
+    wantedBy = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    path = [ pkgs.mutter pkgs.glib pkgs.coreutils pkgs.gnugrep pkgs.gawk ];
+    serviceConfig = { ExecStart = displayPower; Restart = "on-failure"; RestartSec = 10; };
+  };
   # Firefox decodes video through VA-API (nvidia-vaapi-driver, nix/n1x.nix); its README asks for
   # these prefs and an unsandboxed RDD process.
   programs.firefox = {
@@ -160,6 +231,16 @@ in
       TimeoutStopSec = "90s";
     };
   };
+  # n1x.nix ignores the lid (the benchmark image must not sleep mid-run); a laptop desktop should
+  # suspend on lid close, on battery and on AC.
+  services.logind.settings.Login = {
+    HandleLidSwitch = lib.mkForce "suspend";
+    HandleLidSwitchExternalPower = lib.mkForce "suspend";
+  };
+  # Kernel messages go to the console at debug level during boot (boot.consoleLogLevel 7, so a
+  # hang shows where it stopped); once booted, only warnings and worse, so the console that shows
+  # briefly around suspend and resume is not filled with driver chatter. dmesg keeps everything.
+  boot.kernel.sysctl."kernel.printk" = "4 4 1 7";
   # Before each suspend too: a resume that never comes back still leaves the log up to the suspend.
   powerManagement.powerDownCommands = "${collect}/bin/anvesana-collect journal suspend || true";
   powerManagement.resumeCommands ="${collect}/bin/anvesana-collect full resume || true";

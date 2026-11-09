@@ -196,21 +196,14 @@ check "audio cards" "$(grep -q '^ *[0-9]' /proc/asound/cards 2>/dev/null && echo
   "$(grep '^ *[0-9]' /proc/asound/cards 2>/dev/null | sed 's/  */ /g' | tr '\n' ';')"
 sinks=$(as_user pactl list short sinks 2>/dev/null | awk '{print $2}' | tr '\n' ' ')
 check "audio sinks" "$(printf '%s' "$sinks" | grep -qE 'alsa_output' && echo OK || echo MISSING)" "${sinks:-none}"
-# The "Speakers (DSP)" filter-chain (n1x.speakerDsp): is the module loaded in the daemon, and if
-# not, why? Loading it again in a short-lived pw-cli shows the error the daemon's `nofail` hides.
-dsp=/etc/pipewire/pipewire.conf.d/60-n1x-speaker-dsp.conf
-if [ -e "$dsp" ]; then
-  { echo "== $dsp -> $(readlink -f "$dsp")"
-    echo "== modules in the daemon"; as_user pw-cli ls Module 2>&1 | grep -E 'id |module.name'
-    pwpid=$(pgrep -x pipewire | head -1)
-    echo "== daemon (pid ${pwpid:-none}) environment"
-    [ -n "$pwpid" ] && tr '\0' '\n' <"/proc/$pwpid/environ" | grep -E '^(LV2_PATH|PIPEWIRE|SPA)'
-    echo "== test load in pw-cli (5 s)"
-    args=$(jq -c '."context.modules"[0].args' "$dsp")
-    as_user env PIPEWIRE_DEBUG=3 timeout 5 pw-cli -m load-module libpipewire-module-filter-chain "$args" 2>&1 \
-      | grep -v 'descriptor_load' | head -80
+# The "Speakers (DSP)" filter-chain (n1x.speakerDsp) runs as the user unit n1x-speaker-dsp.
+if [ -e /etc/systemd/user/n1x-speaker-dsp.service ]; then
+  { as_user systemctl --user status --no-pager n1x-speaker-dsp
+    echo "== journal"; journalctl -b --no-pager --user-unit n1x-speaker-dsp 2>&1 \
+      | grep -vE 'descriptor_load|mod.rt' | tail -80
   } >"$s/audio-dsp.txt" 2>&1
-  check "speaker DSP sink" "$(printf '%s' "$sinks" | grep -q 'n1x-speakers' && echo OK || echo MISSING)" "details in audio-dsp.txt"
+  check "speaker DSP sink" "$(printf '%s' "$sinks" | grep -q 'n1x-speakers' && echo OK || echo MISSING)" \
+    "unit $(as_user systemctl --user is-active n1x-speaker-dsp 2>/dev/null); audio-dsp.txt"
 fi
 
 # ---- network, bluetooth
@@ -237,6 +230,43 @@ bat=$(grep -l 'POWER_SUPPLY_TYPE=Battery' /sys/class/power_supply/*/uevent 2>/de
 check "battery" "$([ -n "$bat" ] && echo OK || echo MISSING)" \
   "$( [ -n "$bat" ] && grep -E 'CAPACITY=|STATUS=' "$bat" | cut -d= -f2 | tr '\n' ' ')"
 check "suspend (s2idle)" INFO "mem_sleep=[$(cat /sys/power/mem_sleep 2>/dev/null)] successes=$(cat /sys/power/suspend_stats/success 2>/dev/null) failures=$(cat /sys/power/suspend_stats/fail 2>/dev/null)"
+# Power knobs: CPPC (EPP / autonomous selection, the EcoQoS-like controls), what
+# power-profiles-daemon drives, lockdown (blocks hibernation), Wi-Fi power save, runtime PM.
+{ echo "== cppc policy0 files"; ls /sys/devices/system/cpu/cpufreq/policy0/
+  for f in auto_select auto_act_window energy_performance_preference_val energy_performance_preference \
+           energy_performance_available_preferences scaling_available_governors; do
+    [ -e "/sys/devices/system/cpu/cpufreq/policy0/$f" ] && echo "$f: $(cat "/sys/devices/system/cpu/cpufreq/policy0/$f" 2>&1)"
+  done
+  echo "== acpi cppc cpu0"; grep -H . /sys/devices/system/cpu/cpu0/acpi_cppc/* 2>&1
+  echo "== platform_profile"; cat /sys/firmware/acpi/platform_profile* 2>&1
+  echo "== power-profiles-daemon"; powerprofilesctl list 2>&1
+  echo "== lockdown"; cat /sys/kernel/security/lockdown 2>&1
+  echo "== /sys/power"; grep -H . /sys/power/disk /sys/power/state /sys/power/mem_sleep 2>&1
+  echo "== Wi-Fi power save"; for i in $(iw dev 2>/dev/null | awk '/Interface/{print $2}'); do echo "$i: $(iw dev "$i" get power_save 2>&1)"; done
+  echo "== runtime PM: devices with control=on (never suspended)"
+  for d in /sys/bus/pci/devices/* /sys/bus/usb/devices/* /sys/bus/platform/devices/*; do
+    [ "$(cat "$d/power/control" 2>/dev/null)" = on ] && echo "${d#/sys/bus/} $(cat "$d/power/runtime_status" 2>/dev/null)"
+  done
+  echo "== PCIe ASPM policy: $(cat /sys/module/pcie_aspm/parameters/policy 2>&1)"
+} >"$s/power-knobs.txt" 2>&1
+check "CPU power knobs" INFO "$(grep -E '^(auto_select|energy_performance_preference_val):' "$s/power-knobs.txt" | tr '\n' ' ')ppd: $(powerprofilesctl get 2>/dev/null) lockdown: $(grep -o '\[[a-z]*\]' /sys/kernel/security/lockdown 2>/dev/null)"
+check "runtime PM off" INFO "$(sed -n '/control=on/,/ASPM/p' "$s/power-knobs.txt" | grep -c '^[a-z]') devices; $(grep -m1 'ASPM' "$s/power-knobs.txt")"
+# Battery drain now: power_now over 30 s (W), and what mutter is told about refresh and VRR.
+bat_dir=$(dirname "$bat" 2>/dev/null)
+if [ -n "$bat" ] && [ -e "$bat_dir/power_now" ]; then
+  w=$(for _ in $(seq 6); do cat "$bat_dir/power_now"; sleep 5; done | awk '{s+=$1; n++} END {if (n) printf "%.2f", s/n/1e6}')
+  check "battery drain (30 s)" INFO "${w} W, status $(cat "$bat_dir/status")"
+fi
+{ echo "== connector and CRTC properties (vrr_capable, VRR_ENABLED)"
+  drm_info 2>&1 | grep -iE 'Connector [0-9]|eDP|vrr|VRR_ENABLED|refresh| Mode' | head -40
+  echo "== mutter"; as_user gsettings get org.gnome.mutter experimental-features
+  echo "== gdctl show"; as_user gdctl show 2>&1 | head -40
+  echo "== modes offered"; as_user gdctl show --modes 2>&1 | grep -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?' | sort -u
+  echo "== n1x-display-power (refresh rate by power source)"
+  journalctl -b --no-pager --user-unit n1x-display-power 2>&1 | tail -30
+} >"$s/display-vrr.txt" 2>&1
+check "VRR" INFO "vrr_capable=$(grep -m1 -oE 'vrr_capable.*= *[01]' "$s/display-vrr.txt" | grep -oE '[01]$') VRR_ENABLED=$(grep -m1 -oE 'VRR_ENABLED.*= *[01]' "$s/display-vrr.txt" | grep -oE '[01]$') mode $(sed -n '/== gdctl show/,/== modes offered/p' "$s/display-vrr.txt" | grep -m1 -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?'); +vrr modes $(grep -cE '\+vrr$' "$s/display-vrr.txt"); $(journalctl -b --no-pager --user-unit n1x-display-power -o cat 2>/dev/null | grep -E ' -> ' | tail -1)"
+check "standby notify (LPS0)" INFO "$(grep -E 'n1x-lps0' "$dir/dmesg.txt" | tail -1 | sed 's/^\[[^]]*\] //')${s:+ }$(grep -c 'LPS0 _DSM' "$dir/dmesg.txt") _DSM calls"
 { for c in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -e "$c/scaling_driver" ] || continue
     echo "${c##*/}: $(cat "$c/scaling_driver") gov=$(cat "$c/scaling_governor") cur=$(cat "$c/scaling_cur_freq") min=$(cat "$c/scaling_min_freq") max=$(cat "$c/scaling_max_freq") cpus=$(cat "$c/related_cpus")"
