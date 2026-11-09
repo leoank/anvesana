@@ -122,6 +122,10 @@ in
     # new on this platform and its absence should show in the logs. See nix/spi-hid/README.md.
     boot.extraModulePackages = [ (config.boot.kernelPackages.callPackage ./spi-hid.nix { }) ];
     boot.kernelModules = [ "spi-hid-acpi" ];
+    # Suspend: the firmware offers "deep" (PSCI system suspend) and Linux picks it by default, but
+    # Windows on this machine only uses Modern Standby (s2idle-like), so deep is the untested path.
+    # The first suspend on Linux, in deep, never resumed (2026-11-09).
+    boot.kernelParams = [ "mem_sleep_default=s2idle" ];
 
     # ---------------------------------------------------------------- NVIDIA
     services.xserver.videoDrivers = [ "nvidia" ];   # selects hardware.nvidia; enables no X server by itself
