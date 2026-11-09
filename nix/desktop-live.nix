@@ -6,6 +6,7 @@
 # When it collects:
 #   2 min after boot      full snapshot ("boot")
 #   every 5 min           journal + dmesg only, so a hang still leaves recent logs on the drive
+#   before suspend        journal + dmesg ("suspend"), so a resume that hangs still leaves logs
 #   after resume          full snapshot ("resume"), for suspend tests
 #   at shutdown/reboot    journal + dmesg ("shutdown")
 #   on demand             the "Collect logs" app, or `sudo anvesana-collect full <label>`
@@ -29,7 +30,7 @@ let
     runtimeInputs = with pkgs; [
       coreutils util-linux systemd gnugrep gnused gawk procps kmod iproute2 iw networkmanager
       bluez pciutils usbutils libinput alsa-utils pulseaudio v4l-utils upower power-profiles-daemon
-      iio-sensor-proxy mesa-demos vulkan-tools gnome-shell libva-utils
+      iio-sensor-proxy mesa-demos vulkan-tools gnome-shell libva-utils pipewire jq
     ] ++ [ (config.hardware.nvidia.package.bin or config.hardware.nvidia.package) ];   # nvidia-smi
     # The N1X UCM profiles (nix/n1x.nix); system services do not get session variables.
     runtimeEnv.ALSA_CONFIG_UCM2 = config.n1x.alsaUcm2;
@@ -159,7 +160,9 @@ in
       TimeoutStopSec = "90s";
     };
   };
-  powerManagement.resumeCommands = "${collect}/bin/anvesana-collect full resume || true";
+  # Before each suspend too: a resume that never comes back still leaves the log up to the suspend.
+  powerManagement.powerDownCommands = "${collect}/bin/anvesana-collect journal suspend || true";
+  powerManagement.resumeCommands ="${collect}/bin/anvesana-collect full resume || true";
 
   # For scripts/vm-test.sh only: `anvesana.vmtest_poweroff=<seconds>` on the kernel command line
   # powers off cleanly after that long (GNOME catches the VM's power button and asks instead).

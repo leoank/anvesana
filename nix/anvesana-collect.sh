@@ -195,6 +195,22 @@ check "audio cards" "$(grep -q '^ *[0-9]' /proc/asound/cards 2>/dev/null && echo
   "$(grep '^ *[0-9]' /proc/asound/cards 2>/dev/null | sed 's/  */ /g' | tr '\n' ';')"
 sinks=$(as_user pactl list short sinks 2>/dev/null | awk '{print $2}' | tr '\n' ' ')
 check "audio sinks" "$(printf '%s' "$sinks" | grep -qE 'alsa_output' && echo OK || echo MISSING)" "${sinks:-none}"
+# The "Speakers (DSP)" filter-chain (n1x.speakerDsp): is the module loaded in the daemon, and if
+# not, why? Loading it again in a short-lived pw-cli shows the error the daemon's `nofail` hides.
+dsp=/etc/pipewire/pipewire.conf.d/60-n1x-speaker-dsp.conf
+if [ -e "$dsp" ]; then
+  { echo "== $dsp -> $(readlink -f "$dsp")"
+    echo "== modules in the daemon"; as_user pw-cli ls Module 2>&1 | grep -E 'id |module.name'
+    pwpid=$(pgrep -x pipewire | head -1)
+    echo "== daemon (pid ${pwpid:-none}) environment"
+    [ -n "$pwpid" ] && tr '\0' '\n' <"/proc/$pwpid/environ" | grep -E '^(LV2_PATH|PIPEWIRE|SPA)'
+    echo "== test load in pw-cli (5 s)"
+    args=$(jq -c '."context.modules"[0].args' "$dsp")
+    as_user env PIPEWIRE_DEBUG=3 timeout 5 pw-cli -m load-module libpipewire-module-filter-chain "$args" 2>&1 \
+      | grep -v 'descriptor_load' | head -80
+  } >"$s/audio-dsp.txt" 2>&1
+  check "speaker DSP sink" "$(printf '%s' "$sinks" | grep -q 'n1x-speakers' && echo OK || echo MISSING)" "details in audio-dsp.txt"
+fi
 
 # ---- network, bluetooth
 run "$s/network.txt" ip -br addr
