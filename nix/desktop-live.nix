@@ -6,7 +6,7 @@
 # When it collects:
 #   2 min after boot      full snapshot ("boot")
 #   every 5 min           journal + dmesg only, so a hang still leaves recent logs on the drive
-#   after resume          full snapshot ("resume"), for suspend tests
+#   30 s after resume     full snapshot ("resume"), for suspend tests, at idle priority
 #   at shutdown/reboot    journal + dmesg ("shutdown")
 #   on demand             the "Collect logs" app, or `sudo anvesana-collect full <label>`
 #
@@ -95,10 +95,15 @@ let
         echo "$conn: $mode set $(( $(date +%s) - last_time )) s ago but current is ''${cur:-?}; not retrying"
         return 0
       fi
-      last_set=$mode; last_time=$(date +%s)
-      if gdctl set --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode"; then
+      # --persistent stores it in monitors.xml, so mutter restores this mode itself on resume
+      # and lid open instead of its fixed 120 Hz default, which this script then had to replace
+      # with a second modeset ~3 s after each wake (2026-11-10, boot 43467edb).
+      if gdctl set --persistent --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode"; then
+        last_set=$mode; last_time=$(date +%s)
         echo "$conn: ''${cur:-?} -> $mode (scale ''${scale:-preferred}; $([ "$hz" = 60 ] && echo battery || echo AC); vrr $vrr)"
       else
+        # Not counted as set: with the lid closed mutter refuses ("Refusing to activate a closed
+        # laptop panel"), and counting it blocked the retry after the lid opened.
         echo "gdctl set $conn $mode failed"
       fi
     }
@@ -291,7 +296,19 @@ in
   # Not before suspend: copying the journal to SPARKDATA held every suspend up by ~6 s, and a
   # second power-key press in that time woke the laptop at once. Resume works, and the 5-minute
   # copies still leave a recent log if it ever hangs.
-  powerManagement.resumeCommands = "${collect}/bin/anvesana-collect full resume || true";
+  # The resume snapshot runs detached, 30 s after the wake, at idle priority: run in the resume
+  # hook it took 20-35 s with ~10 s of CPU (nvidia-smi, vulkaninfo, ...) right while GNOME woke
+  # the panel, and a lid close in that time waited for it: 11 s from lid to suspend (2026-11-10,
+  # boot 43467edb). A suspend before it starts just runs it later; one already queued is kept.
+  powerManagement.resumeCommands = ''
+    ${pkgs.systemd}/bin/systemd-run --no-block --quiet --collect --unit=anvesana-collect-resume \
+      --on-active=30s --timer-property=RemainAfterElapse=no \
+      --property=Nice=19 --property=IOSchedulingClass=idle \
+      ${collect}/bin/anvesana-collect full resume || true
+  '';
+  # Per-device suspend and resume times in dmesg ("PM: ... returned 0 after N usecs" for slow
+  # ones), to find what the ~2.2-3.1 s the kernel spends per suspend/resume cycle goes on.
+  systemd.tmpfiles.rules = [ "w /sys/power/pm_print_times - - - - 1" ];
 
   # For scripts/vm-test.sh only: `anvesana.vmtest_poweroff=<seconds>` on the kernel command line
   # powers off cleanly after that long (GNOME catches the VM's power button and asks instead).

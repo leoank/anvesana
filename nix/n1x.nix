@@ -270,7 +270,52 @@ in
           done
           echo "speaker sink did not appear in 60 s"; exit 1
         '';
-        ExecStart = "${config.services.pipewire.package}/bin/pipewire -c ${speakerDspConf}";
+        # The filter plays into the speaker sink, so that sink's own volume applied on top: with
+        # it at 64 % the DSP output at full volume was about -12 dB, "half as loud" (2026-11-10,
+        # boot 43467edb). While Speakers (DSP) is the default output the speaker sink is held at
+        # 100 % (the DSP volume is then the only one) and its old volume is put back as soon as
+        # another output is chosen; the events come from `pactl subscribe`, so there is no
+        # moment at 100 % on the plain sink. A resume that re-creates the speaker sink unloads
+        # the filter ("defined target not found", same boot, after a SoundWire bus clash) while
+        # pipewire keeps running: exit then, so Restart brings it back after ExecStartPre.
+        ExecStart = pkgs.writeShellScript "n1x-speaker-dsp" ''
+          pw=${config.services.pipewire.package}/bin pactl=${pkgs.pulseaudio}/bin/pactl
+          spk=alsa_output.platform-mtk_sdw_mc.HiFi__Speaker__sink dsp=audio_effect.n1x-speakers
+          $pw/pipewire -c ${speakerDspConf} & pid=$!
+          seen= saved=
+          restore() {
+            [ -n "$saved" ] || return 0
+            $pactl set-sink-volume $spk "$saved" && echo "speaker sink back to $saved"; saved=
+          }
+          trap 'restore; kill $pid 2>/dev/null; wait $pid; exit 0' TERM INT
+          check() {
+            kill -0 $pid 2>/dev/null || { restore; echo "pipewire exited"; exit 1; }
+            if $pw/pw-cli ls Node 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "node.name = \"$dsp\""; then
+              seen=1
+            elif [ -n "$seen" ]; then
+              restore; echo "filter node gone (speaker sink re-created?); restarting"
+              kill $pid; wait $pid; exit 1
+            else
+              return 0
+            fi
+            if [ "$($pactl get-default-sink 2>/dev/null)" = "$dsp" ]; then
+              v=$($pactl get-sink-volume $spk 2>/dev/null | ${pkgs.gnugrep}/bin/grep -oE '[0-9]+%' | head -1)
+              if [ -n "$v" ] && [ "$v" != 100% ]; then
+                [ -n "$saved" ] || saved=$v
+                $pactl set-sink-volume $spk 100% && echo "Speakers (DSP) is the default: speaker sink $v -> 100%"
+              fi
+            else
+              restore
+            fi
+          }
+          sleep 2; check
+          # Process substitution, not a pipe: the loop stays in this shell, so the TERM trap
+          # (logout, shutdown) still puts the speaker volume back.
+          while read -r ev; do
+            case $ev in *server*|*"on sink #"*) check ;; esac
+          done < <($pactl subscribe 2>/dev/null)
+          restore; echo "pactl subscribe ended"; kill $pid 2>/dev/null; wait $pid; exit 1
+        '';
         Restart = "on-failure";
         RestartSec = 5;
       };
