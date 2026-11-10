@@ -45,6 +45,10 @@ let
   # (`sudo n1x-scp-peek`), never from the collector.
   scpPeek = pkgs.writeScriptBin "n1x-scp-peek"
     ("#!${pkgs.python3}/bin/python3\n" + builtins.readFile ./n1x-scp-peek.py);
+  # Re-probes the sensor hub's driver with the spi-hid test parameters (EXP-20261110-rwymta);
+  # by hand only (`sudo n1x-hub-test`).
+  hubTest = pkgs.writeScriptBin "n1x-hub-test"
+    ("#!${pkgs.python3}/bin/python3\n" + builtins.readFile ./n1x-hub-test.py);
   # The launcher's command lives in a script: desktop-file Exec lines may not hold shell syntax.
   collectInteractive = pkgs.writeShellScriptBin "anvesana-collect-app" ''
     sudo ${collect}/bin/anvesana-collect full manual
@@ -249,7 +253,7 @@ in
     gnome-tweaks mpv glmark2 mesa-demos vulkan-tools v4l-utils alsa-utils pulseaudio libva-utils
     libinput evtest brightnessctl iw pciutils usbutils lshw dmidecode acpica-tools
     git htop powertop exfatprogs
-  ]) ++ [ collect collectApp scpPeek ];
+  ]) ++ [ collect collectApp scpPeek hubTest ];
 
   # ------------------------------------------------------------------ log collection
   systemd.services.anvesana-collect-boot = {

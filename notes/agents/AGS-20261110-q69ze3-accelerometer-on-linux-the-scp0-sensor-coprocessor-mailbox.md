@@ -7,7 +7,7 @@ model: "claude-opus-5-5"
 harness: "claude-code"
 started: 2026-11-10T21:06+00:00
 finished: null
-created_entities: [EXP-20261110-q6a1yn]
+created_entities: [EXP-20261110-q6a1yn, RUN-20261110-rgc7bg, RUN-20261110-rs3p36, EXP-20261110-rwymta]
 edited_entities: []
 outcome: pending          # done | failed | aborted | pending
 created: 2026-11-10
@@ -35,3 +35,13 @@ the lead from the last session is SCP0 (NVDA8200) and its Windows driver nvSCP.s
   command (`nix/n1x-scp-peek.py`) in the live image that reads the UEFI variables, the mailbox
   status registers and SCP0's SRAM twice, and saves them to SPARKDATA. Anything that writes to
   the coprocessor waits for Ank's go-ahead.
+- [[RUN-20261110-rgc7bg]] (Ank ran `sudo n1x-scp-peek`): nvSCP's UEFI variables are absent; SCP0
+  runs MediaTek FreeRTOS firmware that carries the whole sensor hub; mailboxes idle.
+- [[RUN-20261110-rs3p36]] (Ank, on Windows): the nvSCP device cannot be disabled, so its service
+  was set to Start=4; after a reboot the hub and rotation still work. Proposed conclusion for
+  [[EXP-20261110-q6a1yn]], for Ank to sign: the host sends SCP0 nothing the hub needs.
+- Opened [[EXP-20261110-rwymta]]: spi-hid enables its IRQ only after `_RST`, so a fast
+  single-edge reset response is lost. Added opt-in `irq_before_reset` and
+  `poll_after_reset_ms` parameters to our spi-hid copy and `sudo n1x-hub-test`, which
+  re-probes both ways while sampling EINT 190's registers (read-only). Built into the image
+  (log 16); Ank asked to build, write the stick, and reboot to test.

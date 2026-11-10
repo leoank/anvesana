@@ -73,6 +73,8 @@ struct spi_hid {
 
 	struct work_struct reset_work;
 	struct work_struct panel_follower_work;
+	/* anvesana: one header read without the interrupt (poll_after_reset_ms). */
+	struct delayed_work anvesana_poll_work;
 
 	/* Control lock to ensure complete output transaction. */
 	struct mutex output_lock;

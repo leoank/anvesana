@@ -91,6 +91,13 @@ over the mailbox, as nvSCP does at start.
    step 1 and 2 of the start sequence, then resets the hub (rebind spi-hid) and watches IRQ 232.
 4. If that works, a proper Linux driver for NVDA8200 that does it at boot and resume.
 
+Update 2026-11-10, after [[RUN-20261110-rgc7bg]] and [[RUN-20261110-rs3p36]]: the answer to the
+question looks like "nothing". The UEFI variables are absent, and Windows' hub works with
+nvSCP.sys not loaded at all. Steps 2 to 4 are dropped. The difference is on the host side of
+the hub, which is the next experiment's question: does EINT 190 latch in the EINT controller
+(block 3) when the hub is reset, and does spi-hid get anything if it reads the input report
+header without waiting for the interrupt?
+
 ## Success criteria
 
 IRQ 232 (EINT 190) counts up after the hub reset, spi-hid reads the hub's report descriptor,
@@ -100,6 +107,8 @@ orientation.
 ## Runs
 One line per run after its link, what was tried and what it showed; `yajna validate`
 rejects a bare link here. Metric runs also land in results.tsv.
+- [[RUN-20261110-rgc7bg]] read-only probe from Linux: the UEFI variables nvSCP sends are absent; SCP0 firmware (FreeRTOS, spis-hid, hid_sensorhub, lsm6dsv/lis2dw12/bmm350/tcs3430) is running at a 1 kHz tick; mailboxes idle
+- [[RUN-20261110-rs3p36]] Windows with nvSCP.sys kept from loading (service Start=4, device disabled after reboot): the SPI HID hub, both sensor collections and the orientation sensor still work and the screen still rotates, so H1 is false
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.

@@ -93,3 +93,4 @@ rejects a bare link here. Newest last.
 - [[EXP-20261104-ssfv1c]] Native NixOS with stock ACPI: is the GPU clock locked on AC only, and how much memory does Linux get? Stock ACPI does not boot; with SSPM exposed Linux decodes 7–12 % faster than Windows at 2.5 GHz, and gets only the non-reserved RAM.
 - [[EXP-20261104-ssfy1p]] Does exposing the hidden SSPM (NVDA8400) device give Linux working GPU power management? SSPM is what powers USB/I2C on Linux; with it alone Linux runs at full speed.
 - [[EXP-20261110-q6a1yn]] What does the host have to send SCP0 (NVDA8200) for the MSFW1111 sensor hub to start answering on SPI?
+- [[EXP-20261110-rwymta]] Why does the sensor hub never interrupt on Linux: is the reset response's edge lost before spi-hid enables its IRQ?

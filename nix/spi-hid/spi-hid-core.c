@@ -1289,6 +1289,49 @@ EXPORT_SYMBOL_GPL(spi_hid_groups);
  *   3) deassert reset (high)
  * After this we expect an IRQ with a reset response.
  */
+/*
+ * anvesana (EXP on bbaum-pc-7's sensor hub, MSFW1111): two opt-in tests, both off by default.
+ * The IRQ is requested with IRQF_NO_AUTOEN and enabled only after deassert_reset, which on
+ * ACPI is _RST, the doorbell into the SoC's sensor coprocessor. If the coprocessor answers
+ * with one edge before enable_irq(), that edge is lost and the driver waits forever (0
+ * interrupts on Linux; Windows' hidspi connects its interrupt before resetting).
+ *   irq_before_reset=1      enable the IRQ before deassert_reset
+ *   poll_after_reset_ms=N   if no reset response N ms after reset, run the interrupt handler
+ *                           once by hand (one header read over SPI) and log the header bytes
+ * Both can be changed at runtime in /sys/module/spi_hid/parameters and take effect on the
+ * next probe (unbind and bind spi_hid_acpi).
+ */
+static bool anvesana_irq_before_reset;
+module_param_named(irq_before_reset, anvesana_irq_before_reset, bool, 0644);
+MODULE_PARM_DESC(irq_before_reset, "anvesana test: enable the IRQ before deasserting reset");
+static unsigned int anvesana_poll_ms;
+module_param_named(poll_after_reset_ms, anvesana_poll_ms, uint, 0644);
+MODULE_PARM_DESC(poll_after_reset_ms,
+		 "anvesana test: read the input header once if no reset response after this many ms (0: off)");
+
+static void spi_hid_anvesana_poll(struct work_struct *work)
+{
+	struct spi_hid *shid = container_of(to_delayed_work(work), struct spi_hid,
+					    anvesana_poll_work);
+	struct device *dev = &shid->spi->dev;
+
+	if (!test_bit(SPI_HID_RESET_PENDING, &shid->flags)) {
+		dev_info(dev, "anvesana: reset response arrived (by interrupt) within %u ms\n",
+			 anvesana_poll_ms);
+		return;
+	}
+	dev_info(dev, "anvesana: no reset response %u ms after reset; running the handler once without the interrupt\n",
+		 anvesana_poll_ms);
+	disable_irq(shid->spi->irq);
+	spi_hid_dev_irq(shid->spi->irq, shid);
+	enable_irq(shid->spi->irq);
+	print_hex_dump(KERN_INFO, "spi_hid: anvesana: polled header: ", DUMP_PREFIX_NONE, 16, 1,
+		       shid->input->header, sizeof(shid->input->header), false);
+	dev_info(dev, "anvesana: after the poll: reset %s, bus errors %u (last %d)\n",
+		 test_bit(SPI_HID_RESET_PENDING, &shid->flags) ? "still pending" : "response handled",
+		 shid->bus_error_count, shid->bus_last_error);
+}
+
 static int spi_hid_dev_init(struct spi_hid *shid)
 {
 	struct spi_device *spi = shid->spi;
@@ -1307,9 +1350,19 @@ static int spi_hid_dev_init(struct spi_hid *shid)
 		return error;
 	}
 
+	if (anvesana_irq_before_reset) {
+		dev_info(dev, "anvesana: enabling IRQ %d before reset\n", spi->irq);
+		enable_irq(spi->irq);
+	}
+
 	shid->ops->deassert_reset(shid->ops);
 
-	enable_irq(spi->irq);
+	if (!anvesana_irq_before_reset)
+		enable_irq(spi->irq);
+
+	if (anvesana_poll_ms)
+		schedule_delayed_work(&shid->anvesana_poll_work,
+				      msecs_to_jiffies(anvesana_poll_ms));
 
 	return 0;
 }
@@ -1414,6 +1467,7 @@ int spi_hid_core_probe(struct spi_device *spi, struct spihid_ops *ops,
 	init_completion(&shid->output_done);
 
 	INIT_WORK(&shid->reset_work, spi_hid_reset_work);
+	INIT_DELAYED_WORK(&shid->anvesana_poll_work, spi_hid_anvesana_poll);
 	INIT_WORK(&shid->panel_follower_work, spi_hid_panel_follower_work);
 
 	/*
@@ -1475,6 +1529,7 @@ void spi_hid_core_remove(struct spi_device *spi)
 	else
 		disable_irq(spi->irq);
 
+	cancel_delayed_work_sync(&shid->anvesana_poll_work);
 	cancel_work_sync(&shid->reset_work);
 
 	spi_hid_stop_hid(shid);

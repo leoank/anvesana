@@ -53,4 +53,17 @@ on over that mailbox. Next step for the accelerometer: work out that mailbox pro
 `_CRS` has five memory ranges, among them 0x1AB20000 and 0x1AAA0000/0x1AAB0000, and interrupts
 0x2EA-0x2EE and 0x198; which are the mailbox is not known yet), not this driver.
 
+Result (2026-11-10, EXP-20261110-q6a1yn in notes/): the hub needs nothing from nvSCP.sys. On
+Windows it works with that driver not loaded, and on Linux SCP0's firmware (FreeRTOS, with
+an SPI-slave HID driver and the whole sensor hub: lsm6dsv, lis2dw12, bmm350, tcs3430) is
+running. So the gap is on the host side.
+
+Second local change (marked `anvesana` in `spi-hid-core.c`, for EXP-20261110-rwymta): two
+test parameters, both off by default. The core requests the IRQ with `IRQF_NO_AUTOEN` and
+enables it only after `deassert_reset`, which on ACPI is `_RST`, the coprocessor doorbell; a
+single-edge reset response sent before that is lost. `spi_hid.irq_before_reset=1` enables
+the IRQ before the reset; `spi_hid.poll_after_reset_ms=N` runs the interrupt handler once
+by hand if no reset response came within N ms and logs the header bytes. `sudo n1x-hub-test`
+(`nix/n1x-hub-test.py`) re-probes the driver both ways and records EINT 190's register bits.
+
 Licence: GPL-2.0 (SPDX headers in each file).
