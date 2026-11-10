@@ -49,8 +49,12 @@ def eint_regs():
 def irq_count():
     for line in open("/proc/interrupts"):
         if "MSFW1111" in line:
-            parts = line.split()
-            return sum(int(p) for p in parts[1:] if p.isdigit()), line.strip()
+            counts = []
+            for p in line.split()[1:]:       # per-CPU counts, up to the chip name
+                if not p.isdigit():
+                    break
+                counts.append(int(p))
+            return sum(counts), line.strip()
     return None, "no MSFW1111 line in /proc/interrupts"
 
 

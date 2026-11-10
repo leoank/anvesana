@@ -174,13 +174,29 @@ static int spi_hid_acpi_assert_reset(struct spihid_ops *ops)
 	return 0;
 }
 
+/*
+ * anvesana (not upstream; EXP-20261110-rwymta): the series called device_reset(&adev->dev),
+ * but an acpi_device's own struct device has no fwnode (acpi_init_device_object() never sets
+ * it), so ACPI_HANDLE() is NULL there, __device_reset() skips _RST, looks for a reset
+ * controller, fails, and spi_hid_dev_init() ignores the error. On bbaum-pc-7 _RST is the
+ * doorbell that tells the sensor coprocessor to reset the hub, so the hub never sent a reset
+ * response. Evaluate _RST on the handle directly instead.
+ */
 static int spi_hid_acpi_deassert_reset(struct spihid_ops *ops)
 {
 	struct spi_hid_acpi_config *conf = container_of(ops,
 							struct spi_hid_acpi_config,
 							ops);
+	acpi_status status;
 
-	return device_reset(&conf->adev->dev);
+	status = acpi_evaluate_object(conf->adev->handle, "_RST", NULL, NULL);
+	if (ACPI_FAILURE(status)) {
+		acpi_handle_err(conf->adev->handle, "anvesana: _RST failed: %s\n",
+				acpi_format_exception(status));
+		return -EIO;
+	}
+	acpi_handle_info(conf->adev->handle, "anvesana: _RST evaluated\n");
+	return 0;
 }
 
 static void spi_hid_acpi_sleep_minimal_reset_delay(struct spihid_ops *ops)

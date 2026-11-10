@@ -52,6 +52,14 @@ connects its interrupt before resetting.
 3. Depending on the result: make the working order the default (and report it upstream to
    the spi-hid series), or follow the EINT/GIC path, or the doorbell.
 
+Update 2026-11-10, after [[RUN-20261110-sd3esk]]: H1 is false (no response in either order,
+EINT status never set). The doorbell was the problem: spi-hid-acpi's reset never evaluated
+`_RST` at all (`device_reset()` on an `acpi_device`'s own struct device finds no ACPI handle;
+details on the run). H2: with `_RST` really evaluated, the coprocessor resets the hub and
+answers; prediction: "anvesana: _RST evaluated" in dmesg, IRQ 232 counts, the reset response
+is handled, and the HID sensor collection with an accelerometer appears. Next run: the same
+`n1x-hub-test` on an image with that fix.
+
 ## Success criteria
 
 IRQ 232 counts up after a probe, spi-hid reads the hub's report descriptor, and
@@ -60,6 +68,7 @@ IRQ 232 counts up after a probe, spi-hid reads the hub's report descriptor, and
 ## Runs
 One line per run after its link, what was tried and what it showed; `yajna validate`
 rejects a bare link here. Metric runs also land in results.tsv.
+- [[RUN-20261110-sd3esk]] re-probe in both IRQ orders with a 1.5 s poll: no interrupt, EINT 190 status never set, polled headers invalid (00s, d8s); then found that `_RST` was never evaluated (device_reset on the acpi_device finds no handle)
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.

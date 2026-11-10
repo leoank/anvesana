@@ -1355,7 +1355,10 @@ static int spi_hid_dev_init(struct spi_hid *shid)
 		enable_irq(spi->irq);
 	}
 
-	shid->ops->deassert_reset(shid->ops);
+	/* anvesana: the series ignored this; a failed reset now shows in the log. */
+	error = shid->ops->deassert_reset(shid->ops);
+	if (error)
+		dev_err(dev, "%s: deassert reset failed: %d\n", __func__, error);
 
 	if (!anvesana_irq_before_reset)
 		enable_irq(spi->irq);
