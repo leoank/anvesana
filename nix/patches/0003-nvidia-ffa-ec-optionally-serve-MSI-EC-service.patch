@@ -1,0 +1,60 @@
+From 7e66b75d818f3a89726886e55ed1260801690dcf Mon Sep 17 00:00:00 2001
+From: Ankur Kumar <ankit@bodygram.com>
+Date: Tue, 10 Nov 2026 14:38:14 +0000
+Subject: [PATCH] platform/arm64: nvidia-ffa-ec: optionally serve MSI's EC
+ service
+
+The MSI Prestige N16 Flip AI+ firmware reaches its EC through the FF-A
+service 78b04d80-d21d-4986-8acb-467b60247ac5 (\_SB.WMIP, \_SB.WMIC), which
+is not in the driver's service table, so those methods fail with -ENODEV;
+among them the Modern Standby entry/exit functions of the LPS0 _DSM.
+Bind the service, and pass requests to it only with oem_msi_ec=1.
+---
+ drivers/platform/arm64/nvidia-ffa-ec.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/drivers/platform/arm64/nvidia-ffa-ec.c b/drivers/platform/arm64/nvidia-ffa-ec.c
+index 92834fd33..69c25f3d5 100644
+--- a/drivers/platform/arm64/nvidia-ffa-ec.c
++++ b/drivers/platform/arm64/nvidia-ffa-ec.c
+@@ -24,6 +24,17 @@
+  */
+ static bool ffa_ec_legacy_spec;
+ 
++/*
++ * MSI's EC service, reached by the firmware's \_SB.WMIP and \_SB.WMIC (MSI Prestige N16 Flip AI+):
++ * the Modern Standby entry/exit _DSM writes the EC through it. Off unless oem_msi_ec=1, so
++ * that by default no firmware method reaches MSI's EC through this driver.
++ */
++static const uuid_t nvidia_ffa_msi_ec_uuid =
++	UUID_INIT(0x78b04d80, 0xd21d, 0x4986, 0x8a, 0xcb, 0x46, 0x7b, 0x60, 0x24, 0x7a, 0xc5);
++static bool oem_msi_ec;
++module_param(oem_msi_ec, bool, 0444);
++MODULE_PARM_DESC(oem_msi_ec, "Pass firmware requests to MSI's EC service 78b04d80-d21d-4986-8acb-467b60247ac5 (default off)");
++
+ /* platform device for FFA ACPI device */
+ static struct platform_device *ffa_pdev;
+ 
+@@ -752,6 +763,9 @@ static int nvidia_ffh_do_ffa_send(uuid_t uuid, u8 *rawdata,
+ 	ktime_t deadline;
+ 	int ret;
+ 
++	if (!oem_msi_ec && uuid_equal(&uuid, &nvidia_ffa_msi_ec_uuid))
++		return -ENODEV;
++
+ 	mutex_lock(&nvidia_ffa_lock);
+ 	list_for_each_entry(cur, &nvidia_ec_ffa_dev_head, list) {
+ 		if (uuid_equal(&uuid, &cur->ffa_dev->uuid)) {
+@@ -1009,6 +1023,9 @@ static const struct ffa_device_id nvidia_ffa_ec_service_ids[] = {
+ 		    0x85, 0x68, 0xdf, 0xf1, 0xf5, 0x42, 0x13, 0x83) },
+ 	{ UUID_INIT(0x73cc07ac, 0xd184, 0x4b5a,
+ 		    0x89, 0x07, 0x83, 0x7c, 0x5b, 0x0a, 0xe1, 0x2b) },
++	/* MSI EC service (see nvidia_ffa_msi_ec_uuid) */
++	{ UUID_INIT(0x78b04d80, 0xd21d, 0x4986,
++		    0x8a, 0xcb, 0x46, 0x7b, 0x60, 0x24, 0x7a, 0xc5) },
+ 	{}
+ };
+ 
+-- 
+2.43.0
+

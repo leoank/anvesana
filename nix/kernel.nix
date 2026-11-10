@@ -45,5 +45,9 @@ linuxManualConfig {
     # The sensor hub's interrupt is EINT 190, which has no GPIO (MT8901: 209 EINTs, 182 GPIOs);
     # see nix/spi-hid/README.md.
     { name = "pinctrl-mediatek-eint-without-gpio"; patch = ./patches/0002-pinctrl-mediatek-eint-allow-EINTs-that-have-no-GPIO.patch; }
+    # MSI's firmware reaches its EC over FF-A service 78b04d80-… (\_SB.WMIP), which NVIDIA's
+    # driver does not list; requests pass only with nvidia_ffa_ec.oem_msi_ec=1 (standby-notify
+    # boot entry). Without it the LPS0 Modern Standby calls fail and the keyboard light stays on.
+    { name = "nvidia-ffa-ec-msi-ec-service"; patch = ./patches/0003-nvidia-ffa-ec-optionally-serve-MSI-EC-service.patch; }
   ];
 }

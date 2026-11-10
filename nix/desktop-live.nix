@@ -6,7 +6,6 @@
 # When it collects:
 #   2 min after boot      full snapshot ("boot")
 #   every 5 min           journal + dmesg only, so a hang still leaves recent logs on the drive
-#   before suspend        journal + dmesg ("suspend"), so a resume that hangs still leaves logs
 #   after resume          full snapshot ("resume"), for suspend tests
 #   at shutdown/reboot    journal + dmesg ("shutdown")
 #   on demand             the "Collect logs" app, or `sudo anvesana-collect full <label>`
@@ -16,8 +15,8 @@
 #                  that image from a stick written directly, not Ventoy), else acpi_osi="!Windows 2022"
 #   osi            acpi_osi="!Windows 2022", all five hidden devices (only in an override build)
 #   safe-graphics  as default, but the firmware framebuffer (simpledrm) instead of nvidia-drm
-#   standby-notify as default, plus n1x-lps0: the firmware's Modern Standby calls around suspend
-#   vblank         as default, with nvidia_drm vblank=1 (retest under mutter 50)
+#   standby-notify as default, plus n1x-lps0: the firmware's Modern Standby calls around suspend,
+#                  and nvidia_ffa_ec.oem_msi_ec=1 so that they reach MSI's EC
 #   serial         as default, with the console also on ttyAMA0 (QEMU, or a serial adapter)
 # Specialisations inherit the default entry's settings, so each adds only its difference.
 { config, lib, pkgs, modulesPath, ... }:
@@ -33,6 +32,7 @@ let
       coreutils util-linux systemd gnugrep gnused gawk procps kmod iproute2 iw networkmanager
       bluez pciutils usbutils libinput alsa-utils pulseaudio v4l-utils upower power-profiles-daemon
       iio-sensor-proxy mesa-demos vulkan-tools gnome-shell libva-utils pipewire jq drm_info mutter glib
+      tuned
     ] ++ [ (config.hardware.nvidia.package.bin or config.hardware.nvidia.package) ];   # nvidia-smi
     # The N1X UCM profiles (nix/n1x.nix); system services do not get session variables.
     runtimeEnv.ALSA_CONFIG_UCM2 = config.n1x.alsaUcm2;
@@ -61,16 +61,19 @@ let
   # has no such switch itself; Windows runs this panel at 60 Hz on battery. `vrr=off` in
   # ~/.config/n1x-display-power keeps the fixed modes. Only with the built-in panel alone: a
   # `gdctl set` naming one monitor would turn every other one off.
+  # mutter re-applies its own default (fixed 120 Hz) when the lid opens and after resume, so the
+  # mode is checked again on each of mutter's MonitorsChanged signals too, against the current one.
   displayPower = pkgs.writeShellScript "n1x-display-power" ''
     conf=''${XDG_CONFIG_HOME:-$HOME/.config}/n1x-display-power
-    last=
+    last_set= last_time=0
     apply() {
-      local show conns conn scale res hz modes mode vrr=on
+      local show conns conn scale res hz modes mode cur vrr=on
       show=$(gdctl show --modes 2>&1) || { echo "gdctl show failed: $show"; return 1; }
       conns=$(printf '%s\n' "$show" | grep -oE '\b(eDP|DP|HDMI|DVI|VGA)-[0-9]+' | sort -u)
       if [ "$(printf '%s\n' "$conns" | grep -c .)" != 1 ]; then
-        echo "monitors: $(echo $conns); leaving the configuration alone"; last=; return 0
+        echo "monitors: $(echo $conns); leaving the configuration alone"; return 0
       fi
+      cur=$(gdctl show 2>/dev/null | awk '/Current mode/ {getline; if (match($0, /[0-9]+x[0-9]+@[0-9.]+(\+vrr)?/)) print substr($0, RSTART, RLENGTH); exit}')
       conn=$conns
       scale=$(printf '%s\n' "$show" | grep -m1 -oE 'Scale: [0-9.]+' | grep -oE '[0-9.]+$')
       modes=$(printf '%s\n' "$show" | grep -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?' | sort -u)
@@ -85,19 +88,29 @@ let
       [ "$vrr" = on ] && mode=$(pick "")
       [ -n "$mode" ] || mode=$(pick -v)
       [ -n "$mode" ] || { echo "no $res mode near $hz Hz in: $(echo $modes)"; return 0; }
-      [ "$mode" = "$last" ] && return 0
+      [ "$mode" = "$cur" ] && return 0
+      # The same mode again within 30 s means it did not stick (or reads back under another
+      # name): stop rather than loop on our own MonitorsChanged.
+      if [ "$mode" = "$last_set" ] && [ $(( $(date +%s) - last_time )) -lt 30 ]; then
+        echo "$conn: $mode set $(( $(date +%s) - last_time )) s ago but current is ''${cur:-?}; not retrying"
+        return 0
+      fi
+      last_set=$mode; last_time=$(date +%s)
       if gdctl set --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode"; then
-        echo "$conn -> $mode (scale ''${scale:-preferred}; $([ "$hz" = 60 ] && echo battery || echo AC); vrr $vrr)"
-        last=$mode
+        echo "$conn: ''${cur:-?} -> $mode (scale ''${scale:-preferred}; $([ "$hz" = 60 ] && echo battery || echo AC); vrr $vrr)"
       else
         echo "gdctl set $conn $mode failed"
       fi
     }
     for _ in $(seq 30); do gdctl show >/dev/null 2>&1 && break; sleep 1; done
     apply
-    # Re-applied when UPower's OnBattery changes (not on monitor hotplug).
-    gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower |
-      while read -r line; do case $line in *OnBattery*) apply ;; esac; done
+    # Power source changes (UPower OnBattery) and mutter's own reconfigurations (lid, resume,
+    # hotplug: MonitorsChanged), one event stream; our own change raises one more, a no-op.
+    { gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower &
+      gdbus monitor --session --dest org.gnome.Mutter.DisplayConfig --object-path /org/gnome/Mutter/DisplayConfig
+    } | while read -r line; do
+      case $line in *OnBattery*|*MonitorsChanged*) sleep 1; apply ;; esac
+    done
   '';
 in
 {
@@ -125,15 +138,10 @@ in
     };
     standby-notify.configuration = {
       n1x.lps0 = true;
+      # The Modern Standby functions reach MSI's EC over FF-A (nix/kernel.nix, patch 0003).
+      boot.kernelParams = [ "nvidia_ffa_ec.oem_msi_ec=1" ];
       environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-standby-notify\n";
       isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, tell firmware about standby (LPS0)";
-    };
-    # Retest of nvidia_drm vblank=1: it stalled every page flip under mutter 48/49; mutter 50.1
-    # fixed an NVIDIA freeze (!5021) that may have been the same thing.
-    vblank.configuration = {
-      n1x.nvidiaVblank = true;
-      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-vblank\n";
-      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, nvidia_drm vblank=1 (retest)";
     };
     serial.configuration = {
       # The last console= gets /dev/console, so systemd's status lines reach the serial port too;
@@ -162,11 +170,47 @@ in
     [org.gnome.shell]
     favorite-apps=[ 'anvesana-collect.desktop', 'org.gnome.Console.desktop', 'firefox.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop' ]
   '';
+  # The ELAN pen screen (ELAN9024, i2c 04f3:4516) is not in libwacom 2.18, so Settings > Wacom
+  # Tablet called it "Unknown device". Same form as libwacom's other ELAN entries; size from
+  # libinput (343 x 214 mm, in inches).
+  environment.etc."libwacom/elan-4516.tablet".text = ''
+    [Device]
+    Name=ELAN 4516
+    ModelName=
+    DeviceMatch=i2c|04f3|4516
+    Class=ISDV4
+    Width=14
+    Height=8
+    IntegratedIn=Display;System
+
+    [Features]
+    Stylus=true
+    Touch=true
+  '';
   # OLED: dark pixels draw less power, so dark by default (Settings > Appearance changes it).
   services.desktopManager.gnome.extraGSettingsOverrides = ''
     [org.gnome.desktop.interface]
     color-scheme='prefer-dark'
   '';
+  # Power profiles (GNOME quick settings): power-profiles-daemon has no driver for this CPU
+  # (cppc_cpufreq; it showed only balanced and power-saver, "placeholder"), so TuneD serves the
+  # same D-Bus API (tuned-ppd) with all three. The CPUs run in autonomous mode (n1x-cppc-init:
+  # auto_select=1), where the firmware picks clocks and the energy/performance preference
+  # (0 = performance … 255 = energy) is the knob; balanced keeps the firmware's 127, on battery
+  # it leans to energy. Nothing caps clocks.
+  services.tuned = {
+    enable = true;
+    ppdSettings = {
+      main.default = "balanced";
+      profiles = { power-saver = "n1x-power-saver"; balanced = "n1x-balanced"; performance = "n1x-performance"; };
+      battery = { balanced = "n1x-balanced-battery"; };
+    };
+    profiles = lib.mapAttrs (name: epp: {
+      main.summary = "N1X: energy/performance preference ${toString epp} (0 performance, 255 energy)";
+      cpu_epp = { type = "sysfs"; "/sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference_val" = epp; };
+    }) { n1x-performance = 0; n1x-balanced = 127; n1x-balanced-battery = 192; n1x-power-saver = 255; };
+  };
+  systemd.services.tuned.after = [ "n1x-cppc-init.service" ];
   systemd.user.services.n1x-display-power = {
     description = "Refresh rate by power source (120 Hz AC, 60 Hz battery, VRR when offered)";
     wantedBy = [ "graphical-session.target" ];
@@ -233,17 +277,21 @@ in
   };
   # n1x.nix ignores the lid (the benchmark image must not sleep mid-run); a laptop desktop should
   # suspend on lid close, on battery and on AC.
+  # logind ignores the lid for HoldoffTimeoutSec after boot and after each resume (default 30 s),
+  # so a lid closed soon after waking did nothing (2026-11-10 boot 263fd165: closed 7 s after).
   services.logind.settings.Login = {
     HandleLidSwitch = lib.mkForce "suspend";
     HandleLidSwitchExternalPower = lib.mkForce "suspend";
+    HoldoffTimeoutSec = "5s";
   };
   # Kernel messages go to the console at debug level during boot (boot.consoleLogLevel 7, so a
   # hang shows where it stopped); once booted, only warnings and worse, so the console that shows
   # briefly around suspend and resume is not filled with driver chatter. dmesg keeps everything.
   boot.kernel.sysctl."kernel.printk" = "4 4 1 7";
-  # Before each suspend too: a resume that never comes back still leaves the log up to the suspend.
-  powerManagement.powerDownCommands = "${collect}/bin/anvesana-collect journal suspend || true";
-  powerManagement.resumeCommands ="${collect}/bin/anvesana-collect full resume || true";
+  # Not before suspend: copying the journal to SPARKDATA held every suspend up by ~6 s, and a
+  # second power-key press in that time woke the laptop at once. Resume works, and the 5-minute
+  # copies still leave a recent log if it ever hangs.
+  powerManagement.resumeCommands = "${collect}/bin/anvesana-collect full resume || true";
 
   # For scripts/vm-test.sh only: `anvesana.vmtest_poweroff=<seconds>` on the kernel command line
   # powers off cleanly after that long (GNOME catches the VM's power button and asks instead).

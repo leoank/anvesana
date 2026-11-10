@@ -146,7 +146,8 @@ in
       type = lib.types.bool;
       # Off: on bbaum-pc-7 GNOME on nvidia-drm lagged by minutes with vblank=1 and ran
       # smoothly without it (A/B boots 2026-11-07, only /sys/module/nvidia_drm/parameters/vblank
-      # differed). The ASUS ProArt's qualified tuple sets it.
+      # differed). The ASUS ProArt's qualified tuple sets it. Retested under mutter 50.5
+      # (2026-11-09, boot ac218860): still does not work.
       default = false;
       description = "Pass the ProArt tuple's `nvidia_drm vblank=1` (only with nvidiaDisplay).";
     };
@@ -257,6 +258,18 @@ in
         PIPEWIRE_DEBUG = "3";                    # info: plugin loading shows in the journal
       };
       serviceConfig = {
+        # The filter's output has a fixed target and no fallback, and the filter-chain module
+        # unloads itself ("defined target not found") if the speaker sink is not there yet:
+        # it started 3 s before WirePlumber made the sink (2026-11-10, boot 263fd165). So wait
+        # for the sink first; failing after 60 s lets Restart try again.
+        ExecStartPre = pkgs.writeShellScript "n1x-wait-speaker-sink" ''
+          for _ in $(${pkgs.coreutils}/bin/seq 60); do
+            ${config.services.pipewire.package}/bin/pw-cli ls Node 2>/dev/null \
+              | ${pkgs.gnugrep}/bin/grep -q 'node.name = "alsa_output.platform-mtk_sdw_mc.HiFi__Speaker__sink"' && exit 0
+            ${pkgs.coreutils}/bin/sleep 1
+          done
+          echo "speaker sink did not appear in 60 s"; exit 1
+        '';
         ExecStart = "${config.services.pipewire.package}/bin/pipewire -c ${speakerDspConf}";
         Restart = "on-failure";
         RestartSec = 5;

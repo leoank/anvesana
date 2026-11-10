@@ -199,7 +199,7 @@ check "audio sinks" "$(printf '%s' "$sinks" | grep -qE 'alsa_output' && echo OK 
 # The "Speakers (DSP)" filter-chain (n1x.speakerDsp) runs as the user unit n1x-speaker-dsp.
 if [ -e /etc/systemd/user/n1x-speaker-dsp.service ]; then
   { as_user systemctl --user status --no-pager n1x-speaker-dsp
-    echo "== journal"; journalctl -b --no-pager --user-unit n1x-speaker-dsp 2>&1 \
+    echo "== journal"; journalctl -b --no-pager _SYSTEMD_USER_UNIT=n1x-speaker-dsp.service 2>&1 \
       | grep -vE 'descriptor_load|mod.rt' | tail -80
   } >"$s/audio-dsp.txt" 2>&1
   check "speaker DSP sink" "$(printf '%s' "$sinks" | grep -q 'n1x-speakers' && echo OK || echo MISSING)" \
@@ -239,7 +239,9 @@ check "suspend (s2idle)" INFO "mem_sleep=[$(cat /sys/power/mem_sleep 2>/dev/null
   done
   echo "== acpi cppc cpu0"; grep -H . /sys/devices/system/cpu/cpu0/acpi_cppc/* 2>&1
   echo "== platform_profile"; cat /sys/firmware/acpi/platform_profile* 2>&1
-  echo "== power-profiles-daemon"; powerprofilesctl list 2>&1
+  echo "== power profiles (tuned-ppd serves the power-profiles-daemon API)"; powerprofilesctl list 2>&1
+  echo "== tuned"; tuned-adm active 2>&1
+  echo "== EPP per policy"; grep -H . /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference_val 2>&1
   echo "== lockdown"; cat /sys/kernel/security/lockdown 2>&1
   echo "== /sys/power"; grep -H . /sys/power/disk /sys/power/state /sys/power/mem_sleep 2>&1
   echo "== Wi-Fi power save"; for i in $(iw dev 2>/dev/null | awk '/Interface/{print $2}'); do echo "$i: $(iw dev "$i" get power_save 2>&1)"; done
@@ -249,7 +251,7 @@ check "suspend (s2idle)" INFO "mem_sleep=[$(cat /sys/power/mem_sleep 2>/dev/null
   done
   echo "== PCIe ASPM policy: $(cat /sys/module/pcie_aspm/parameters/policy 2>&1)"
 } >"$s/power-knobs.txt" 2>&1
-check "CPU power knobs" INFO "$(grep -E '^(auto_select|energy_performance_preference_val):' "$s/power-knobs.txt" | tr '\n' ' ')ppd: $(powerprofilesctl get 2>/dev/null) lockdown: $(grep -o '\[[a-z]*\]' /sys/kernel/security/lockdown 2>/dev/null)"
+check "CPU power knobs" INFO "$(grep -E '^(auto_select|energy_performance_preference_val):' "$s/power-knobs.txt" | tr '\n' ' ')profile: $(powerprofilesctl get 2>/dev/null) ($(powerprofilesctl list 2>/dev/null | grep -oE '^[* ] *[a-z-]+:' | tr -d ' *:' | tr '\n' ' ')) tuned: $(tuned-adm active 2>/dev/null | sed -n 's/^Current active profile: //p') lockdown: $(grep -o '\[[a-z]*\]' /sys/kernel/security/lockdown 2>/dev/null)"
 check "runtime PM off" INFO "$(sed -n '/control=on/,/ASPM/p' "$s/power-knobs.txt" | grep -c '^[a-z]') devices; $(grep -m1 'ASPM' "$s/power-knobs.txt")"
 # Battery drain now: power_now over 30 s (W), and what mutter is told about refresh and VRR.
 bat_dir=$(dirname "$bat" 2>/dev/null)
@@ -258,15 +260,21 @@ if [ -n "$bat" ] && [ -e "$bat_dir/power_now" ]; then
   check "battery drain (30 s)" INFO "${w} W, status $(cat "$bat_dir/status")"
 fi
 { echo "== connector and CRTC properties (vrr_capable, VRR_ENABLED)"
-  drm_info 2>&1 | grep -iE 'Connector [0-9]|eDP|vrr|VRR_ENABLED|refresh| Mode' | head -40
+  drm_info 2>&1 | grep -E 'Connector [0-9]+$|Type: eDP|vrr_capable|CRTC [0-9]+$|VRR_ENABLED' | head -80
   echo "== mutter"; as_user gsettings get org.gnome.mutter experimental-features
   echo "== gdctl show"; as_user gdctl show 2>&1 | head -40
   echo "== modes offered"; as_user gdctl show --modes 2>&1 | grep -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?' | sort -u
   echo "== n1x-display-power (refresh rate by power source)"
-  journalctl -b --no-pager --user-unit n1x-display-power 2>&1 | tail -30
+  journalctl -b --no-pager _SYSTEMD_USER_UNIT=n1x-display-power.service 2>&1 | tail -30
 } >"$s/display-vrr.txt" 2>&1
-check "VRR" INFO "vrr_capable=$(grep -m1 -oE 'vrr_capable.*= *[01]' "$s/display-vrr.txt" | grep -oE '[01]$') VRR_ENABLED=$(grep -m1 -oE 'VRR_ENABLED.*= *[01]' "$s/display-vrr.txt" | grep -oE '[01]$') mode $(sed -n '/== gdctl show/,/== modes offered/p' "$s/display-vrr.txt" | grep -m1 -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?'); +vrr modes $(grep -cE '\+vrr$' "$s/display-vrr.txt"); $(journalctl -b --no-pager --user-unit n1x-display-power -o cat 2>/dev/null | grep -E ' -> ' | tail -1)"
-check "standby notify (LPS0)" INFO "$(grep -E 'n1x-lps0' "$dir/dmesg.txt" | tail -1 | sed 's/^\[[^]]*\] //')${s:+ }$(grep -c 'LPS0 _DSM' "$dir/dmesg.txt") _DSM calls"
+check "VRR" INFO "eDP vrr_capable=$(awk '/Type: eDP/{e=1} e && /vrr_capable/{print $NF; exit}' "$s/display-vrr.txt") CRTCs with VRR_ENABLED=1: $(grep -E 'VRR_ENABLED' "$s/display-vrr.txt" | grep -cE '= *1$') mode $(sed -n '/== gdctl show/,/== modes offered/p' "$s/display-vrr.txt" | grep -m1 -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?'); +vrr modes $(grep -cE '\+vrr$' "$s/display-vrr.txt"); $(journalctl -b --no-pager _SYSTEMD_USER_UNIT=n1x-display-power.service -o cat 2>/dev/null | grep -E ' -> ' | tail -1)"
+check "standby notify (LPS0)" INFO "$(grep -c 'LPS0 _DSM' "$dir/dmesg.txt") _DSM calls, $(grep -cE 'LPS0 _DSM [0-9]+ .*no result' "$dir/dmesg.txt") failed; oem_msi_ec=$(cat /sys/module/nvidia_ffa_ec/parameters/oem_msi_ec 2>/dev/null || echo -)"
+# FF-A services the firmware can reach (nvidia-ffa-ec binds them); MSI's EC is 78b04d80-….
+{ for d in /sys/bus/arm_ffa/devices/*; do
+    [ -e "$d" ] || continue
+    echo "${d##*/} id=$(cat "$d/partition_id" 2>/dev/null) uuid=$(cat "$d/uuid" 2>/dev/null) driver=$(basename "$(readlink "$d/driver" 2>/dev/null)" 2>/dev/null)"
+  done; } >"$s/ffa.txt" 2>&1
+check "FF-A MSI EC service" INFO "$(grep -i '78b04d80' "$s/ffa.txt" | head -1 || true)$(grep -qi '78b04d80' "$s/ffa.txt" || echo "not listed; $(grep -c . "$s/ffa.txt") FF-A devices (ffa.txt)")"
 { for c in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -e "$c/scaling_driver" ] || continue
     echo "${c##*/}: $(cat "$c/scaling_driver") gov=$(cat "$c/scaling_governor") cur=$(cat "$c/scaling_cur_freq") min=$(cat "$c/scaling_min_freq") max=$(cat "$c/scaling_max_freq") cpus=$(cat "$c/related_cpus")"

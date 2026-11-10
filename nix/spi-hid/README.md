@@ -42,4 +42,15 @@ Fix being tested (2026-11-09), in two parts:
   `_CRS`, finds the controller's IRQ domain by its ACPI node, maps the pin number (= EINT
   number) and sets the trigger from the descriptor (edge, active low: falling).
 
+Result (2026-11-09/10, bbaum-pc-7): both parts work (probe binds IRQ 232, EINT 190, falling
+edge; the EINT table puts 190 in block 3, index 9, as `_CRS` does), but the interrupt never
+fires (0 counts). The hub is not a separate chip: `SENH._RST` only writes 1 to a register at
+0x1AB20008, which belongs to `\_SB.SCP0` (NVDA8200, the SoC's sensor coprocessor), and
+NVDA8200 has no Linux driver. On Windows it is `nvSCP.sys` (NVIDIA, 2.19.0.0): a mailbox driver
+(`DMF_Mailbox`, an `EnableHtCmd` command, an SRAM recovery dump) with no firmware file of its
+own, so the coprocessor is already running and most likely waits for the host to switch the hub
+on over that mailbox. Next step for the accelerometer: work out that mailbox protocol (SCP0's
+`_CRS` has five memory ranges, among them 0x1AB20000 and 0x1AAA0000/0x1AAB0000, and interrupts
+0x2EA-0x2EE and 0x198; which are the mailbox is not known yet), not this driver.
+
 Licence: GPL-2.0 (SPDX headers in each file).
