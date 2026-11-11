@@ -70,6 +70,7 @@ One line per run after its link, what was tried and what it showed; `yajna valid
 rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261110-sd3esk]] re-probe in both IRQ orders with a 1.5 s poll: no interrupt, EINT 190 status never set, polled headers invalid (00s, d8s); then found that `_RST` was never evaluated (device_reset on the acpi_device finds no handle)
 - [[RUN-20261110-t3crtm]] with `_RST` evaluated the hub answers (IRQ 232 counts, valid headers), but its 2972-byte report descriptor fails the core's 2048-byte max_input_length check and the probe times out
+- [[RUN-20261111-0sdjbf]] with `_RST` and the descriptor-size fix the hub works at boot: als, gyro, two accelerometers, two custom sensors; iio-sensor-proxy sees the accelerometer. GNOME does not auto-rotate yet (no tablet-mode switch)
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.

@@ -15,6 +15,17 @@
 # first sees later in the session).
 
 set -u
+# The settings live in the desktop user's dconf. Under sudo, dconf would write root's (and
+# GNOME never sees it: `sudo n1x-pen soft` did nothing on 2026-11-11), so go back to the
+# user who ran sudo, on their session bus.
+if [ "$(id -u)" = 0 ]; then
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
+    uid=$(id -u "$SUDO_USER")
+    exec sudo -u "$SUDO_USER" env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+      XDG_RUNTIME_DIR="/run/user/$uid" "$0" "$@"
+  fi
+  echo "run n1x-pen as the desktop user, not root (no sudo needed)" >&2; exit 2
+fi
 DIR=/org/gnome/desktop/peripherals/stylus/
 GUESS=default-04f3:4516/
 CONF=/mnt/sparkdata/config/n1x-pen.conf
@@ -50,6 +61,11 @@ set_values() {   # $1 range "[a, b]", $2 curve "[a, b, c, d]"
     dconf write "$DIR${e}pressure-curve" "$2" || return 1
   done
   echo "pressure-range $1, pressure-curve $2 (on: $(entries | tr '\n' ' '))"
+  if [ "$(entries)" = "$GUESS" ]; then
+    echo "note: GNOME has stored nothing for the pen yet, so this went to the expected entry"
+    echo "      ($GUESS). If the pen feels the same, move Settings > Wacom Tablet > Stylus >"
+    echo "      Tip Pressure Feel once (that creates the pen's real entry) and run this again."
+  fi
 }
 
 current() {      # range and curve of the first entry that has them

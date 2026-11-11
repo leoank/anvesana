@@ -1536,15 +1536,22 @@ void spi_hid_core_remove(struct spi_device *spi)
 	struct device *dev = &spi->dev;
 	int error;
 
+	/*
+	 * anvesana (not upstream): remove the HID device first, while the IRQ still works. The
+	 * series disabled the IRQ first; hid-sensor-accel-3d's remove then waits for a work item
+	 * that is still waiting for the hub's answer, which can no longer arrive: unbinding hung
+	 * in D state (bbaum-pc-7, 2026-11-11, hid_sensor_remove_trigger -> cancel_work_sync).
+	 */
+	cancel_delayed_work_sync(&shid->anvesana_poll_work);
+	cancel_work_sync(&shid->reset_work);
+	spi_hid_stop_hid(shid);
+
 	if (shid->is_panel_follower)
 		drm_panel_remove_follower(&shid->panel_follower);
 	else
 		disable_irq(spi->irq);
 
-	cancel_delayed_work_sync(&shid->anvesana_poll_work);
 	cancel_work_sync(&shid->reset_work);
-
-	spi_hid_stop_hid(shid);
 
 	if (shid->power_state != HIDSPI_OFF) {
 		shid->ops->assert_reset(shid->ops);

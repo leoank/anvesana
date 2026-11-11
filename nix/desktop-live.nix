@@ -40,14 +40,17 @@ let
     checkPhase = "";
     text = builtins.readFile ./anvesana-collect.sh;
   };
-  # Read-only look at the sensor coprocessor for EXP-20261110-q6a1yn; run by hand only
-  # (`sudo n1x-scp-peek`), never from the collector.
-  scpPeek = pkgs.writeScriptBin "n1x-scp-peek"
-    ("#!${pkgs.python3}/bin/python3\n" + builtins.readFile ./n1x-scp-peek.py);
-  # Re-probes the sensor hub's driver with the spi-hid test parameters (EXP-20261110-rwymta);
-  # by hand only (`sudo n1x-hub-test`).
-  hubTest = pkgs.writeScriptBin "n1x-hub-test"
-    ("#!${pkgs.python3}/bin/python3\n" + builtins.readFile ./n1x-hub-test.py);
+  # n1x-scp-peek and n1x-hub-test (EXP-20261110-q6a1yn, -rwymta) are no longer in the image:
+  # the sensor hub works (boot 110078bc), and re-probing it hung on unbind. Their scripts stay
+  # in nix/ for the run pages.
+  # `sudo n1x-sensors`: the accelerometers and the hub's custom (hinge/lid angle) sensors in
+  # four postures, for auto-rotate and a tablet-mode switch.
+  sensorsTool = let
+    py = pkgs.writeText "n1x-sensors.py" (builtins.readFile ./n1x-sensors.py);
+  in pkgs.writeShellScriptBin "n1x-sensors" ''
+    export PATH=${lib.makeBinPath [ pkgs.iio-sensor-proxy pkgs.systemd pkgs.coreutils ]}:$PATH
+    exec ${pkgs.python3}/bin/python3 ${py} "$@"
+  '';
   # `n1x-pen softer`, `n1x-pen range 0 40`, `n1x-pen save`: the pen's pressure range and curve.
   penTool = pkgs.writeShellApplication {
     name = "n1x-pen";
@@ -267,7 +270,7 @@ in
     gnome-tweaks mpv glmark2 mesa-demos vulkan-tools v4l-utils alsa-utils pulseaudio libva-utils
     libinput evtest brightnessctl iw pciutils usbutils lshw dmidecode acpica-tools
     git htop powertop exfatprogs
-  ]) ++ [ collect collectApp scpPeek hubTest penTool ];
+  ]) ++ [ collect collectApp sensorsTool penTool ];
 
   # ------------------------------------------------------------------ log collection
   systemd.services.anvesana-collect-boot = {
