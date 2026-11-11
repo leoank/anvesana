@@ -818,10 +818,19 @@ static int spi_hid_bus_validate_header(struct spi_hid *shid,
 		return -EINVAL;
 	}
 
+	/*
+	 * anvesana (not upstream; EXP-20261110-rwymta): max_input_length bounds input reports, but
+	 * the same check also hit the report descriptor response, which can be longer: bbaum-pc-7's
+	 * sensor hub declares 2048 and answers the descriptor request with a 2972-byte body, so the
+	 * descriptor was dropped and the probe timed out. spi_hid_ll_parse() grows the buffers to
+	 * the descriptor's length first, so accept anything the buffer can hold.
+	 */
 	if (shid->desc.max_input_length != 0 &&
-	    header->report_length > shid->desc.max_input_length) {
-		dev_err(dev, "Input report body size %u > max expected of %u\n",
-			header->report_length, shid->desc.max_input_length);
+	    header->report_length > max_t(u32, shid->desc.max_input_length,
+					  sizeof(shid->input->body) + shid->bufsize)) {
+		dev_err(dev, "Input report body size %u > max expected of %u (buffer %zu)\n",
+			header->report_length, shid->desc.max_input_length,
+			sizeof(shid->input->body) + shid->bufsize);
 		return -EMSGSIZE;
 	}
 

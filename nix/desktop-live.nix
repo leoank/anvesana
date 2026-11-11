@@ -12,12 +12,11 @@
 #
 # Boot entries. Linux needs SSPM (NVDA8400) exposed or USB and the keyboard do not work:
 #   default        the SSPM DSDT override when built with ANVESANA_ACPI_OVERRIDE (--impure; boot
-#                  that image from a stick written directly, not Ventoy), else acpi_osi="!Windows 2022"
-#   osi            acpi_osi="!Windows 2022", all five hidden devices (only in an override build)
-#   safe-graphics  as default, but the firmware framebuffer (simpledrm) instead of nvidia-drm
-#   standby-notify as default, plus n1x-lps0: the firmware's Modern Standby calls around suspend,
-#                  and nvidia_ffa_ec.oem_msi_ec=1 so that they reach MSI's EC
-#   serial         as default, with the console also on ttyAMA0 (QEMU, or a serial adapter)
+#                  that image from a stick written directly, not Ventoy), else acpi_osi="!Windows 2022";
+#                  in the override build also n1x-lps0 (the firmware's Modern Standby calls around
+#                  suspend) and nvidia_ffa_ec.oem_msi_ec=1 so that they reach MSI's EC
+#   vblank         as default, plus nvidia_drm vblank=1 (known to stall GNOME; kept to retest)
+#   serial         only without the override (scripts/vm-test.sh): console also on ttyAMA0
 # Specialisations inherit the default entry's settings, so each adds only its difference.
 { config, lib, pkgs, modulesPath, ... }:
 
@@ -49,6 +48,13 @@ let
   # by hand only (`sudo n1x-hub-test`).
   hubTest = pkgs.writeScriptBin "n1x-hub-test"
     ("#!${pkgs.python3}/bin/python3\n" + builtins.readFile ./n1x-hub-test.py);
+  # `n1x-pen softer`, `n1x-pen range 0 40`, `n1x-pen save`: the pen's pressure range and curve.
+  penTool = pkgs.writeShellApplication {
+    name = "n1x-pen";
+    runtimeInputs = with pkgs; [ dconf coreutils gnugrep gnused ];
+    bashOptions = [ ];          # the script sets -u itself; a failed dconf read is not fatal
+    text = builtins.readFile ./n1x-pen.sh;
+  };
   # The launcher's command lives in a script: desktop-file Exec lines may not hold shell syntax.
   collectInteractive = pkgs.writeShellScriptBin "anvesana-collect-app" ''
     sudo ${collect}/bin/anvesana-collect full manual
@@ -139,36 +145,35 @@ in
   boot.initrd.prepend = lib.mkIf override [
     "${builtins.path { path = acpiOverride; name = "acpi-override.cpio"; }}"
   ];
-  boot.kernelParams = lib.mkIf (!override) [ ''acpi_osi="!Windows 2022"'' ];
   environment.etc."anvesana-boot-entry".text = lib.mkDefault "${defaultName}\n";
   isoImage.appendToMenuLabel = lib.mkDefault " - ${defaultName} (GNOME)";
 
+  # What the standby-notify entry tested is now the default (2026-11-10, boots c542daee and
+  # 72000af6: LPS0 calls 0 failed, keyboard light off in standby): n1x-lps0 makes the
+  # firmware's Modern Standby calls around suspend, and they reach MSI's EC over FF-A
+  # (nix/kernel.nix, patch 0003). On the laptop only: n1x-lps0 finds no LPS0 device in a VM.
+  n1x.lps0 = override;
+  boot.kernelParams = if override then [ "nvidia_ffa_ec.oem_msi_ec=1" ]
+                      else [ ''acpi_osi="!Windows 2022"'' ];
+
+  # The safe-graphics, standby-notify and osi entries are gone (Ank, 2026-11-10: keep the
+  # working entry and vblank=1); git history has them.
   specialisation = {
-    safe-graphics.configuration = {
-      n1x.nvidiaDisplay = false;
-      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-safe-graphics\n";
-      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, safe graphics (simpledrm)";
+    vblank.configuration = {
+      # Kept to come back to: GNOME on nvidia-drm stalled with vblank=1 (2026-11-07 and under
+      # mutter 50.5 on 2026-11-09); see n1x.nvidiaVblank in nix/n1x.nix.
+      n1x.nvidiaVblank = true;
+      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-vblank\n";
+      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, nvidia_drm vblank=1";
     };
-    standby-notify.configuration = {
-      n1x.lps0 = true;
-      # The Modern Standby functions reach MSI's EC over FF-A (nix/kernel.nix, patch 0003).
-      boot.kernelParams = [ "nvidia_ffa_ec.oem_msi_ec=1" ];
-      environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-standby-notify\n";
-      isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, tell firmware about standby (LPS0)";
-    };
+  } // lib.optionalAttrs (!override) {
+    # Only in the build without the override (the one scripts/vm-test.sh boots, whose default
+    # entry is this one): the console also on ttyAMA0, captured as serial.log. The last
+    # console= gets /dev/console, so systemd's status lines reach the serial port too.
     serial.configuration = {
-      # The last console= gets /dev/console, so systemd's status lines reach the serial port too;
-      # the kernel's own messages go to both.
       boot.kernelParams = [ "console=ttyAMA0,115200" ];
       environment.etc."anvesana-boot-entry".text = lib.mkForce "${defaultName}-serial\n";
       isoImage.appendToMenuLabel = lib.mkForce " - ${defaultName}, serial console (ttyAMA0)";
-    };
-  } // lib.optionalAttrs override {
-    osi.configuration = {
-      boot.initrd.prepend = lib.mkForce [ ];
-      boot.kernelParams = [ ''acpi_osi="!Windows 2022"'' ];
-      environment.etc."anvesana-boot-entry".text = lib.mkForce "osi\n";
-      isoImage.appendToMenuLabel = lib.mkForce " - osi (acpi_osi !Windows 2022)";
     };
   };
 
@@ -232,6 +237,15 @@ in
     path = [ pkgs.mutter pkgs.glib pkgs.coreutils pkgs.gnugrep pkgs.gawk ];
     serviceConfig = { ExecStart = displayPower; Restart = "on-failure"; RestartSec = 10; };
   };
+  # The pen's pressure feel saved with `n1x-pen save` (on SPARKDATA, since the live image
+  # forgets dconf), applied at login and to a stylus GNOME first sees later on.
+  systemd.user.services.n1x-pen = {
+    description = "Apply the saved pen pressure setting (n1x-pen)";
+    wantedBy = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    serviceConfig = { ExecStart = "${penTool}/bin/n1x-pen apply"; Restart = "on-failure"; RestartSec = 10; };
+  };
   # Firefox decodes video through VA-API (nvidia-vaapi-driver, nix/n1x.nix); its README asks for
   # these prefs and an unsandboxed RDD process.
   programs.firefox = {
@@ -253,7 +267,7 @@ in
     gnome-tweaks mpv glmark2 mesa-demos vulkan-tools v4l-utils alsa-utils pulseaudio libva-utils
     libinput evtest brightnessctl iw pciutils usbutils lshw dmidecode acpica-tools
     git htop powertop exfatprogs
-  ]) ++ [ collect collectApp scpPeek hubTest ];
+  ]) ++ [ collect collectApp scpPeek hubTest penTool ];
 
   # ------------------------------------------------------------------ log collection
   systemd.services.anvesana-collect-boot = {
