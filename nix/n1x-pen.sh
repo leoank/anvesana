@@ -18,6 +18,23 @@ set -u
 # The settings live in the desktop user's dconf. Under sudo, dconf would write root's (and
 # GNOME never sees it: `sudo n1x-pen soft` did nothing on 2026-11-11), so go back to the
 # user who ran sudo, on their session bus.
+# `record` is the exception: it reads the pen's input device, which needs root.
+if [ "${1:-}" = record ]; then
+  [ "$(id -u)" = 0 ] || { echo "run with sudo: sudo n1x-pen record" >&2; exit 2; }
+  dev=
+  for e in /sys/class/input/event*; do
+    case $(cat "$e/device/name" 2>/dev/null) in *Stylus*) dev=/dev/input/${e##*/}; break ;; esac
+  done
+  [ -n "$dev" ] || { echo "no stylus input device found" >&2; exit 1; }
+  out=/tmp
+  mountpoint -q /mnt/sparkdata && out=/mnt/sparkdata/bootlogs/$(cat /proc/sys/kernel/hostname)
+  mkdir -p "$out"
+  f=$out/pen-record-$(date +%Y%m%d_%H%M%S).yml
+  echo "Recording $dev for 20 s: draw a few slow, light strokes, then a few normal ones."
+  timeout -s INT 20 libinput record -o "$f" "$dev"
+  echo "written to $f"
+  exit 0
+fi
 if [ "$(id -u)" = 0 ]; then
   if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
     uid=$(id -u "$SUDO_USER")
@@ -38,6 +55,7 @@ n1x-pen range MIN MAX         e.g. `n1x-pen range 0 40` (0..100, MIN < MAX)
 n1x-pen curve X1 Y1 X2 Y2     e.g. `n1x-pen curve 0 80 20 100` (0..100)
 n1x-pen save                  keep the current setting across reboots (SPARKDATA; asks sudo)
 n1x-pen forget                drop the saved setting
+sudo n1x-pen record           20 s of raw pen events to SPARKDATA (for skipping strokes)
 Presets (range; curve):
   default  [0, 100]; [0, 0, 100, 100]     the hardware as is
   soft     [0, 70];  [0, 30, 70, 100]

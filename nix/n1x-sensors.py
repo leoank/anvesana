@@ -102,6 +102,7 @@ def main():
     def say(line=""):
         print(line, flush=True)
         log.write(line + "\n")
+        log.flush()                  # a hung sysfs read must not leave an empty summary
 
     acc = accels()
     cus = customs()

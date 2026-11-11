@@ -54,7 +54,7 @@ let
   # `n1x-pen softer`, `n1x-pen range 0 40`, `n1x-pen save`: the pen's pressure range and curve.
   penTool = pkgs.writeShellApplication {
     name = "n1x-pen";
-    runtimeInputs = with pkgs; [ dconf coreutils gnugrep gnused ];
+    runtimeInputs = with pkgs; [ dconf coreutils gnugrep gnused libinput util-linux ];
     bashOptions = [ ];          # the script sets -u itself; a failed dconf read is not fatal
     text = builtins.readFile ./n1x-pen.sh;
   };
@@ -112,10 +112,10 @@ let
         echo "$conn: $mode set $(( $(date +%s) - last_time )) s ago but current is ''${cur:-?}; not retrying"
         return 0
       fi
-      # --persistent stores it in monitors.xml, so mutter restores this mode itself on resume
-      # and lid open instead of its fixed 120 Hz default, which this script then had to replace
-      # with a second modeset ~3 s after each wake (2026-11-10, boot 43467edb).
-      if gdctl set --persistent --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode"; then
+      # Not --persistent: GNOME Shell asks "Keep these display settings?" for every persistent
+      # change, so it asked at each login and charger change (Ank, 2026-11-11). Without it mutter
+      # brings back its own default on resume and this script switches again ~3 s later.
+      if gdctl set --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode"; then
         last_set=$mode; last_time=$(date +%s)
         echo "$conn: ''${cur:-?} -> $mode (scale ''${scale:-preferred}; $([ "$hz" = 60 ] && echo battery || echo AC); vrr $vrr)"
       else

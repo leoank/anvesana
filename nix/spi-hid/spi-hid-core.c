@@ -544,7 +544,8 @@ static void spi_hid_response_handler(struct spi_hid *shid,
 		dev_err(&shid->spi->dev, "Unexpected response report\n");
 	} else {
 		if (body->input_report_type == REPORT_DESCRIPTOR_RESPONSE ||
-		    body->input_report_type == GET_FEATURE_RESPONSE) {
+		    body->input_report_type == GET_FEATURE_RESPONSE ||
+		    body->input_report_type == GET_INPUT_REPORT_RESPONSE) {
 			memcpy(shid->response->body, shid->input->body,
 			       sizeof(shid->input->body));
 			memcpy(shid->response->content, shid->input->content,
@@ -788,13 +789,13 @@ static int spi_hid_process_input_report(struct spi_hid *shid,
 	case GET_FEATURE_RESPONSE:
 	case SET_FEATURE_RESPONSE:
 	case REPORT_DESCRIPTOR_RESPONSE:
+	case GET_INPUT_REPORT_RESPONSE:		/* anvesana: see spi_hid_get_request() */
 		spi_hid_response_handler(shid, &body);
 		break;
 	/*
-	 * FIXME: sending GET_INPUT and COMMAND reports not supported, thus
-	 * throw away responses to those, they should never come.
+	 * FIXME: sending COMMAND reports not supported, thus throw away responses
+	 * to those, they should never come.
 	 */
-	case GET_INPUT_REPORT_RESPONSE:
 	case COMMAND_RESPONSE:
 		dev_err(dev, "Not a supported report type: 0x%x\n",
 			body.input_report_type);
@@ -848,11 +849,19 @@ static int spi_hid_bus_validate_header(struct spi_hid *shid,
 	return 0;
 }
 
-static int spi_hid_get_request(struct spi_hid *shid, u8 content_id)
+/*
+ * anvesana (not upstream): GET_REPORT for an input report must be a GET_INPUT_REPORT request,
+ * answered by GET_INPUT_REPORT_RESPONSE. The series sent GET_FEATURE for every GET_REPORT and
+ * dropped GET_INPUT_REPORT_RESPONSE as unsupported, so hid-sensor-hub's reads of a sensor's
+ * current value (sysfs in_accel_x_raw and the like) never got their answer and hung
+ * (bbaum-pc-7, 2026-11-11). Streaming through the IIO buffer, as iio-sensor-proxy does, was
+ * not affected.
+ */
+static int spi_hid_get_request(struct spi_hid *shid, u8 content_id, bool input)
 {
 	struct device *dev = &shid->spi->dev;
 	struct spi_hid_output_report report = {
-		.report_type = GET_FEATURE,
+		.report_type = input ? GET_INPUT_REPORT : GET_FEATURE,
 		.content_length = 0,
 		.content_id = content_id,
 		.content = NULL,
@@ -1176,7 +1185,7 @@ static int spi_hid_ll_raw_request(struct hid_device *hid,
 		ret = len;
 		break;
 	case HID_REQ_GET_REPORT:
-		ret = spi_hid_get_request(shid, reportnum);
+		ret = spi_hid_get_request(shid, reportnum, rtype == HID_INPUT_REPORT);
 		if (ret) {
 			dev_err(dev, "failed to get report\n");
 			return ret;
