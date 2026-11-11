@@ -25,5 +25,9 @@
     # Hardware support for an installed NixOS on an N1X laptop: kernel, NVIDIA
     # (display included), CPU frequency init, initrd modules, sleep policy.
     nixosModules.n1x = ./nix/n1x.nix;
+    # The GNOME desktop parts tested on the live desktop image (refresh rate by power source,
+    # power profiles, lid/suspend, LPS0 standby calls, pen screen, n1x-pen, speaker DSP); use
+    # with `n1x` and a GNOME desktop. Findings: docs/n1x-linux.md.
+    nixosModules.n1x-desktop = ./nix/n1x-desktop.nix;
   };
 }
