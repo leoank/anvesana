@@ -9,7 +9,7 @@ SPARKDATA drive under `bootlogs/bbaum-pc-7/`.
 ## Boot and kernel
 - Kernel: NVIDIA's Ubuntu `linux-nvidia-7.0` 7.0.0-1022 with its config (`nix/kernel.nix`), plus
   patches 0001 (ACPI override in one EFI descriptor), 0002 (EINTs without a GPIO), 0003 (MSI EC
-  FF-A service).
+  FF-A service), 0004 (hid-sensor power-on sleep).
 - The firmware hides SSPM (NVDA8400) and four other devices from `_OSI("Windows 2022")`; without
   SSPM the USB and I2C controllers do not probe. Boot with `acpi_osi="!Windows 2022"` or the SSPM
   DSDT override (vendor tables, not in git; never through Ventoy). Same results either way
@@ -47,12 +47,21 @@ SPARKDATA drive under `bootlogs/bbaum-pc-7/`.
   interrupt is EINT 190, which has no GPIO (patch 0002 + `_CRS` lookup); `_RST` was never
   evaluated (`device_reset()` on the acpi_device) ([[RUN-20261110-sd3esk]]); the 2972-byte report
   descriptor exceeded the input-size check ([[RUN-20261110-t3crtm]]); GET_REPORT on input reports
-  needs GET_INPUT_REPORT; remove the HID device before disabling the IRQ.
+  is sent as GET_INPUT_REPORT; remove the HID device before disabling the IRQ; an unanswered
+  GET_INPUT_REPORT no longer resets the hub.
+- The hub never answers GET_INPUT_REPORT, so `in_accel_*_raw` reads fail after ~6 s; read the
+  sensors through the IIO buffer (as iio-sensor-proxy does) ([[RUN-20261113-0c43e2]]).
+- A powered-off sensor reports its interval as 0xffffffff; stock hid-sensor-trigger turned that
+  into a ~49.7-day sleep on every power-on (the "hang in rpm_resume"): kernel patch 0004
+  ([[RUN-20261113-0c42vk]]).
+- The accelerometers report only on a 0.02 g change, so on a desk iio-sensor-proxy got no first
+  sample; a udev rule sets their hysteresis to 0 (`nixosModules.n1x`).
 - Works through iio-sensor-proxy (streaming) ([[RUN-20261111-0sdjbf]]).
 
 ## Open
-- Direct sysfs sensor reads (`in_accel_x_raw`) still hang in `rpm_resume`; spi-hid later logs
-  "failed to get/set report". The custom sensors expose no input fields.
+- Patch 0004, the hysteresis rule and the spi-hid change are not booted yet. `n1x-sensors` reads
+  `in_accel_*_raw`, which this hub cannot answer; it needs to read the IIO buffer instead. The
+  custom sensors expose no input fields.
 - Auto-rotate: GNOME rotates only in touch mode, which needs a SW_TABLET_MODE switch; none exists.
   Needs a hinge-angle (or two-accelerometer) to tablet-mode bridge.
 - Pen strokes skip and need force (likely libinput's tip threshold; `sudo n1x-pen record` to
