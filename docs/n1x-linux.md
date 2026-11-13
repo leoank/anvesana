@@ -59,9 +59,10 @@ SPARKDATA drive under `bootlogs/bbaum-pc-7/`.
 - Works through iio-sensor-proxy (streaming) ([[RUN-20261111-0sdjbf]]).
 
 ## Open
-- Patch 0004, the hysteresis rule and the spi-hid change are not booted yet. `n1x-sensors` reads
-  `in_accel_*_raw`, which this hub cannot answer; it needs to read the IIO buffer instead. The
-  custom sensors expose no input fields.
+- Patch 0004, the hysteresis rule and the spi-hid change are not booted yet. `sudo n1x-sensors`
+  now reads the IIO buffers and the custom sensors' `/dev/HID-SENSOR-2000e1.*` streams; not run
+  yet. Each custom sensor has six signed 16-bit custom values (the old script's glob missed them,
+  hence "no input fields"); which is the hinge angle is still open.
 - Auto-rotate: GNOME rotates only in touch mode, which needs a SW_TABLET_MODE switch; none exists.
   Needs a hinge-angle (or two-accelerometer) to tablet-mode bridge.
 - Pen strokes skip and need force (likely libinput's tip threshold; `sudo n1x-pen record` to
