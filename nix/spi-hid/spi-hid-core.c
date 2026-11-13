@@ -856,6 +856,11 @@ static int spi_hid_bus_validate_header(struct spi_hid *shid,
  * current value (sysfs in_accel_x_raw and the like) never got their answer and hung
  * (bbaum-pc-7, 2026-11-11). Streaming through the IIO buffer, as iio-sensor-proxy does, was
  * not affected.
+ *
+ * anvesana: bbaum-pc-7's hub (MSFW1111) never answers GET_INPUT_REPORT at all (2026-11-13: no
+ * response, not even a late one, across ~90 requests). Each timeout reset the whole hub, which
+ * drops every sensor's settings; with iio-sensor-proxy falling back to raw reads that was a reset
+ * every 6 s. A missing answer to GET_INPUT_REPORT now only fails the request.
  */
 static int spi_hid_get_request(struct spi_hid *shid, u8 content_id, bool input)
 {
@@ -873,8 +878,10 @@ static int spi_hid_get_request(struct spi_hid *shid, u8 content_id, bool input)
 		dev_err(dev,
 			"Expected get request response not received! Error %d\n",
 			error);
-		set_bit(SPI_HID_ERROR, &shid->flags);
-		schedule_work(&shid->reset_work);
+		if (!input) {
+			set_bit(SPI_HID_ERROR, &shid->flags);
+			schedule_work(&shid->reset_work);
+		}
 		return error;
 	}
 
