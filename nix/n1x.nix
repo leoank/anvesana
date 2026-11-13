@@ -197,6 +197,13 @@ in
       (config.boot.kernelPackages.callPackage ./n1x-lps0.nix { })   # loaded only with n1x.lps0
     ];
     boot.kernelModules = [ "spi-hid-acpi" ] ++ lib.optional cfg.lps0 "n1x-lps0";
+    # The hub's accelerometers report only on a change of 0.02 g by default, so on a desk they can
+    # stay silent past iio-sensor-proxy's 0.5 s wait for a first sample; it then falls back to raw
+    # reads (GET_INPUT_REPORT), which this hub never answers. With hysteresis 0 they stream at the
+    # set interval; the hub accepts it while the sensor is off (2026-11-13, AGS-20261112-szs9zf).
+    services.udev.extraRules = ''
+      ACTION=="add", SUBSYSTEM=="iio", DEVPATH=="*/spi-MSFW1111:00/*", ATTR{name}=="accel_3d", ATTR{in_accel_hysteresis}="0"
+    '';
     # Suspend: the firmware offers "deep" (PSCI system suspend) and Linux picks it by default, but
     # Windows on this machine only uses Modern Standby (s2idle-like), so deep is the untested path.
     # The first suspend on Linux, in deep, never resumed (2026-11-09).
