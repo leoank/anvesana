@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ankur Kumar <ankit@bodygram.com>
+Date: Fri, 13 Nov 2026 00:05:00 +0000
+Subject: [PATCH] iio: hid-sensor-trigger: do not sleep on a failed poll
+ interval read
+
+_hid_sensor_power_state() reads the report interval before powering a
+sensor up and then sleeps for two intervals. hid_sensor_read_poll_value()
+returns -EINVAL when the read fails or the value is negative, and the
+check only tests for non-zero, so msleep_interruptible() gets -22 * 2 as
+an unsigned int: about 49.7 days.
+
+The sensor hub of the MSI Prestige N16 Flip AI+ (MSFW1111, HID over SPI)
+reports the interval of a powered-off sensor as 0xffffffff until the host
+sets one, so after boot or a hub reset the first runtime resume of its
+accelerometer hung the caller (an IIO buffer enable or a sysfs raw read)
+in an interruptible sleep, and every other user of the device waited
+behind it in rpm_resume(). Only sleep for a positive interval.
+---
+ drivers/iio/common/hid-sensors/hid-sensor-trigger.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/iio/common/hid-sensors/hid-sensor-trigger.c b/drivers/iio/common/hid-sensors/hid-sensor-trigger.c
+--- a/drivers/iio/common/hid-sensors/hid-sensor-trigger.c
++++ b/drivers/iio/common/hid-sensors/hid-sensor-trigger.c
+@@ -143,7 +143,7 @@ static int _hid_sensor_power_state(struct hid_sensor_common *st, bool state)
+ 	sensor_hub_get_feature(st->hsdev, st->power_state.report_id,
+ 			       st->power_state.index,
+ 			       sizeof(state_val), &state_val);
+-	if (state && poll_value)
++	if (state && poll_value > 0)
+ 		msleep_interruptible(poll_value * 2);
+
+ 	return 0;

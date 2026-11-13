@@ -50,5 +50,8 @@ linuxManualConfig {
     # desktop image's default entry). Without it the LPS0 Modern Standby calls fail and the
     # keyboard light stays on.
     { name = "nvidia-ffa-ec-msi-ec-service"; patch = ./patches/0003-nvidia-ffa-ec-optionally-serve-MSI-EC-service.patch; }
+    # The sensor hub reports a powered-off sensor's interval as 0xffffffff until one is set;
+    # the resulting -EINVAL became a ~49.7-day msleep in the accelerometer's runtime resume.
+    { name = "iio-hid-sensor-trigger-poll-value"; patch = ./patches/0004-iio-hid-sensor-trigger-do-not-sleep-on-a-failed-poll-read.patch; }
   ];
 }
