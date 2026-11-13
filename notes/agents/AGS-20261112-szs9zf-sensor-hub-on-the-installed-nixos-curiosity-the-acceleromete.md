@@ -6,10 +6,10 @@ title: "Sensor hub on the installed NixOS (curiosity): the accelerometer hang, a
 model: "claude-opus-5-5"
 harness: "claude-code"
 started: 2026-11-12T23:39+00:00
-finished: null
+finished: 2026-11-13T01:40+00:00
 created_entities: [EXP-20261113-0c42xp, RUN-20261113-0c42vk, RUN-20261113-0c43e2]
 edited_entities: [PRJ-0001]
-outcome: pending          # done | failed | aborted | pending
+outcome: done             # done | failed | aborted | pending
 created: 2026-11-12
 author: agent:claude
 ---
@@ -50,3 +50,8 @@ on direct accelerometer reads (open in docs/n1x-linux.md) and the hub in general
   uses raw reads; REV-20261031-gfr9da still open, so no review opened for this work.
 - Proposed conclusion for [[EXP-20261113-0c42xp]]: H1 and H2 hold; confirm after booting the
   fixes (success criteria on the page).
+- After Ank's go-ahead: committed 779cb82, 2701c22, 8637430, e06005a, ca3009c (n1x-sensors reads
+  the IIO buffers and the custom sensors' /dev streams) and pushed; built the kernel and
+  curiosity's system locally; bumped neusis (2e64a68, neusis's AGS-20261113-1ejvv4) and built
+  the curiosity-live ISO. Not yet booted: the experiment's success criteria are checked on the
+  new stick.
