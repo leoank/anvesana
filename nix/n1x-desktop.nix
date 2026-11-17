@@ -148,6 +148,24 @@ in
     after = [ "graphical-session.target" ];
     serviceConfig = { ExecStart = "${penTool}/bin/n1x-pen apply"; Restart = "on-failure"; RestartSec = 10; };
   };
+  # Tablet mode: no SW_TABLET_MODE exists, so n1x-tablet-mode makes one from the hinge angle of
+  # the hub's lid and base accelerometers (EXP-20261117-sm6c0e), and passes the lid's samples to
+  # iio-sensor-proxy as an input accelerometer: an IIO buffer has one reader, and the proxy would
+  # take the lid's in tablet mode. The udev rule hides the hub's IIO accelerometers from the
+  # proxy (after its own 80- rule sets the type).
+  systemd.services.n1x-tablet-mode = {
+    description = "Tablet mode switch and lid accelerometer from the sensor hub (n1x-tablet-mode)";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "iio-sensor-proxy.service" "display-manager.service" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.python3}/bin/python3 ${pkgs.writeText "n1x-tablet-mode.py" (builtins.readFile ./n1x-tablet-mode.py)}";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
+  services.udev.extraRules = ''
+    SUBSYSTEM=="iio", DEVPATH=="*/spi-MSFW1111:00/*", ATTR{name}=="accel_3d", ENV{IIO_SENSOR_PROXY_TYPE}=""
+  '';
   # Firefox decodes video through VA-API (nvidia-vaapi-driver, nix/n1x.nix); its README asks for
   # these prefs and an unsandboxed RDD process.
   programs.firefox = {
