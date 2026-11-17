@@ -4,8 +4,8 @@ type: experiment
 schema_version: 1
 title: Why does the sensor hub's accelerometer hang in runtime resume, and why does iio-sensor-proxy get no first sample?
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
+status: concluded         # planned | active | paused | concluded | abandoned
+outcome: positive         # null | positive | negative | inconclusive | infra
 influenced_by: [EXP-20261110-rwymta]
 created: 2026-11-13
 author: agent:claude
@@ -54,6 +54,16 @@ One line per run after its link, what was tried and what it showed; `yajna valid
 rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261113-0c42vk]] kprobes + spi_hid trace, hang reproduced: the hub's feature report carries interval 0xffffffff while the sensor is off, poll read -> -22, msleep_interruptible(4294967252); H1 holds
 - [[RUN-20261113-0c43e2]] buffered capture: streams ~46/s when tilted, ~10/s held, ~0 on a desk; hysteresis 0 (accepted while off) gives ~50/s on a desk; H2 holds. GET_INPUT_REPORT never answered
+- [[RUN-20261117-smx27c]] boots of the rebuilt ISO with all three fixes: no timeouts or resets, hysteresis 0 applied, no resuming, iio-sensor-proxy has an orientation on the desk at once; the success criteria hold
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.
+
+Positive (Ank, 2026-11-17; written by agent:claude at Ank's word). H1 held: with a sensor off
+the hub reports its interval as 0xffffffff, `hid_sensor_read_poll_value()` returns -EINVAL and
+stock hid-sensor-trigger sleeps ~49.7 days in power-on ([[RUN-20261113-0c42vk]]). H2 held: the
+accelerometers report only on a 0.02 g change, so on a desk iio-sensor-proxy got no first
+sample, and the hub never answers GET_INPUT_REPORT ([[RUN-20261113-0c43e2]]). Kernel patch
+0004, spi-hid no longer resetting the hub on an unanswered GET_INPUT_REPORT, and hysteresis 0
+by udev together give a working accelerometer and an orientation at boot on curiosity
+([[RUN-20261117-smx27c]]).

@@ -48,6 +48,7 @@ in `docs/n1x-bringup-log.md`.
 - [x] Native NixOS runs, stock ACPI ([[EXP-20261104-ssfv1c]]), then with SSPM exposed ([[EXP-20261104-ssfy1p]]); stock ACPI cannot boot (no USB without SSPM), so `osi` and `sspm` were run
 - [ ] NPCF and hidden-device disassembly ([[EXP-20261104-ssfn9a]])
 - [x] nvidia-drm display with the ProArt fixes, and N1X hardware support as `nixosModules.n1x` (ADR-0017)
+- [x] Sensor hub on Linux: accelerometers, light and orientation through iio-sensor-proxy ([[EXP-20261113-0c42xp]])
 - [ ] Installed NixOS as the daily driver on bbaum-pc-7: audio, keyboard backlight (Fn + F8), Wi-Fi, suspend; the ProArt audio and keyboard parts are ASUS-specific
 
 ## Open questions
@@ -94,4 +95,4 @@ rejects a bare link here. Newest last.
 - [[EXP-20261104-ssfy1p]] Does exposing the hidden SSPM (NVDA8400) device give Linux working GPU power management? SSPM is what powers USB/I2C on Linux; with it alone Linux runs at full speed.
 - [[EXP-20261110-q6a1yn]] What does the host have to send SCP0 (NVDA8200) for the MSFW1111 sensor hub to start answering on SPI?
 - [[EXP-20261110-rwymta]] Why does the sensor hub never interrupt on Linux: is the reset response's edge lost before spi-hid enables its IRQ?
-- [[EXP-20261113-0c42xp]] Why does the sensor hub's accelerometer hang in runtime resume, and why does iio-sensor-proxy get no first sample? The hub reports a powered-off sensor's interval as 0xffffffff and the kernel sleeps ~49.7 days on the -EINVAL (patch 0004); on a desk it sends nothing at hysteresis 0.02 (udev: 0); GET_INPUT_REPORT is never answered
+- [[EXP-20261113-0c42xp]] Why does the sensor hub's accelerometer hang in runtime resume, and why does iio-sensor-proxy get no first sample? The hub reports a powered-off sensor's interval as 0xffffffff and the kernel sleeps ~49.7 days on the -EINVAL (patch 0004); on a desk it sends nothing at hysteresis 0.02 (udev: 0); GET_INPUT_REPORT is never answered. Concluded positive: the three fixes give an orientation at boot

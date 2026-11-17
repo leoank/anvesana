@@ -56,10 +56,11 @@ SPARKDATA drive under `bootlogs/bbaum-pc-7/`.
   ([[RUN-20261113-0c42vk]]).
 - The accelerometers report only on a 0.02 g change, so on a desk iio-sensor-proxy got no first
   sample; a udev rule sets their hysteresis to 0 (`nixosModules.n1x`).
-- Works through iio-sensor-proxy (streaming) ([[RUN-20261111-0sdjbf]]).
+- Works through iio-sensor-proxy (streaming) ([[RUN-20261111-0sdjbf]]); with the three fixes
+  above it has an orientation at boot on a desk, without hub resets ([[RUN-20261117-smx27c]]).
 
 ## Open
-- Patch 0004, the hysteresis rule and the spi-hid change are not booted yet. `sudo n1x-sensors`
+- `sudo n1x-sensors`
   now reads the IIO buffers and the custom sensors' `/dev/HID-SENSOR-2000e1.*` streams; not run
   yet. Each custom sensor has six signed 16-bit custom values (the old script's glob missed them,
   hence "no input fields"); which is the hinge angle is still open.

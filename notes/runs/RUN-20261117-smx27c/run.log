@@ -1,0 +1,31 @@
+== kernel
+7.0.14
+ 23:21:07  up   3:41,  1 user,  load average: 0.28, 0.26, 0.27
+== spi-hid timeouts / hub resets (expect none)
+Nov 17 19:39:11 curiosity kernel: hid-sensor-hub 001C:0000:0100.0006: hidraw5: <UNKNOWN> HID v3.00 Device [spi 0000:0100] on spi-MSFW1111:00
+Nov 17 19:39:14 curiosity kernel: mtk-soundwire NVDA9100:00: [0] bus restart (soft reset + quiesce)
+Nov 17 19:39:14 curiosity kernel: mtk-soundwire NVDA9100:00: [1] bus restart (soft reset + quiesce)
+Nov 17 23:04:30 curiosity kernel: spi_hid_acpi spi-MSFW1111:00: HID not ready
+== accelerometer hysteresis (expect 0)
+/sys/bus/iio/devices/iio:device0 prox 
+/sys/bus/iio/devices/iio:device1 als 
+/sys/bus/iio/devices/iio:device2 gyro_3d 
+/sys/bus/iio/devices/iio:device3 accel_3d 0.000000
+/sys/bus/iio/devices/iio:device4 accel_3d 0.000000
+== runtime PM (expect no resuming)
+/sys/bus/platform/devices/HID-SENSOR-200001.31.auto/power/runtime_status:unsupported
+/sys/bus/platform/devices/HID-SENSOR-200001.34.auto/power/runtime_status:unsupported
+/sys/bus/platform/devices/HID-SENSOR-200011.32.auto/power/runtime_status:unsupported
+/sys/bus/platform/devices/HID-SENSOR-200041.35.auto/power/runtime_status:suspended
+/sys/bus/platform/devices/HID-SENSOR-200073.36.auto/power/runtime_status:suspended
+/sys/bus/platform/devices/HID-SENSOR-200073.39.auto/power/runtime_status:suspended
+/sys/bus/platform/devices/HID-SENSOR-200076.37.auto/power/runtime_status:unsupported
+/sys/bus/platform/devices/HID-SENSOR-2000c2.38.auto/power/runtime_status:unsupported
+/sys/bus/platform/devices/HID-SENSOR-2000e1.40.auto/power/runtime_status:unsupported
+/sys/bus/platform/devices/HID-SENSOR-2000e1.41.auto/power/runtime_status:unsupported
+== iio-sensor-proxy (laptop untouched on the desk)
+active
+    Waiting for iio-sensor-proxy to appear
++++ iio-sensor-proxy appeared
+=== Has accelerometer (orientation: normal, tilt: vertical)
+({'HasAccelerometer': <true>, 'AccelerometerOrientation': <'normal'>, 'AccelerometerTilt': <'vertical'>, 'HasAmbientLight': <true>, 'LightLevelUnit': <'lux'>, 'LightLevel': <0.0>, 'HasProximity': <false>, 'ProximityNear': <false>},)
