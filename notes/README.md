@@ -49,6 +49,7 @@ in `docs/n1x-bringup-log.md`.
 - [ ] NPCF and hidden-device disassembly ([[EXP-20261104-ssfn9a]])
 - [x] nvidia-drm display with the ProArt fixes, and N1X hardware support as `nixosModules.n1x` (ADR-0017)
 - [x] Sensor hub on Linux: accelerometers, light and orientation through iio-sensor-proxy ([[EXP-20261113-0c42xp]])
+- [ ] Tablet mode from the hinge angle: a SW_TABLET_MODE bridge for GNOME ([[EXP-20261117-sm6c0e]])
 - [ ] Installed NixOS as the daily driver on bbaum-pc-7: audio, keyboard backlight (Fn + F8), Wi-Fi, suspend; the ProArt audio and keyboard parts are ASUS-specific
 
 ## Open questions
@@ -96,3 +97,4 @@ rejects a bare link here. Newest last.
 - [[EXP-20261110-q6a1yn]] What does the host have to send SCP0 (NVDA8200) for the MSFW1111 sensor hub to start answering on SPI?
 - [[EXP-20261110-rwymta]] Why does the sensor hub never interrupt on Linux: is the reset response's edge lost before spi-hid enables its IRQ?
 - [[EXP-20261113-0c42xp]] Why does the sensor hub's accelerometer hang in runtime resume, and why does iio-sensor-proxy get no first sample? The hub reports a powered-off sensor's interval as 0xffffffff and the kernel sleeps ~49.7 days on the -EINVAL (patch 0004); on a desk it sends nothing at hysteresis 0.02 (udev: 0); GET_INPUT_REPORT is never answered. Concluded positive: the three fixes give an orientation at boot
+- [[EXP-20261117-sm6c0e]] Where can Linux get the hinge angle and tablet mode on curiosity: the sensor hub's custom sensors or its two accelerometers? Not the custom sensors; the lid and base accelerometers give the hinge angle within ~5°

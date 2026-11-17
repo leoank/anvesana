@@ -58,14 +58,18 @@ SPARKDATA drive under `bootlogs/bbaum-pc-7/`.
   sample; a udev rule sets their hysteresis to 0 (`nixosModules.n1x`).
 - Works through iio-sensor-proxy (streaming) ([[RUN-20261111-0sdjbf]]); with the three fixes
   above it has an orientation at boot on a desk, without hub resets ([[RUN-20261117-smx27c]]).
+- Accelerometer 200073.36 is in the lid (the one iio-sensor-proxy uses), 200073.39 in the base
+  (10 samples/s; reads 4 g, its raw unit is 0.0025 g against a descriptor saying 0.01 g). The
+  hinge is along x; the hinge angle is `(180 + atan2(lid_y, lid_z) - atan2(base_y, base_z)) mod
+  360`, within ~5° in laptop, flat, tent and tablet ([[RUN-20261117-sm7bfn]]). The custom
+  sensors are not the hinge angle: 2000e1.40 sends [0, 113, 0, 0, 0, 0] in every posture,
+  2000e1.41 nothing.
 
 ## Open
-- `sudo n1x-sensors`
-  now reads the IIO buffers and the custom sensors' `/dev/HID-SENSOR-2000e1.*` streams; not run
-  yet. Each custom sensor has six signed 16-bit custom values (the old script's glob missed them,
-  hence "no input fields"); which is the hinge angle is still open.
 - Auto-rotate: GNOME rotates only in touch mode, which needs a SW_TABLET_MODE switch; none exists.
-  Needs a hinge-angle (or two-accelerometer) to tablet-mode bridge.
+  Needs a two-accelerometer to tablet-mode bridge (hinge angle above, lid switch to tell closed
+  from tablet) ([[EXP-20261117-sm6c0e]]).
+- What custom sensor 2000e1.40's value 113 is.
 - Pen strokes skip and need force (likely libinput's tip threshold; `sudo n1x-pen record` to
   check).
 - `nvidia_drm vblank=1` stalls GNOME (kept as a boot entry to retest).
