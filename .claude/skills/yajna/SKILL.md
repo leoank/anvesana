@@ -35,6 +35,10 @@ tree). The `yajna` binary creates and checks pages; never write a page by hand.
 yajna new experiment "<question>" --project PRJ-xxxx      # curated; fill Question, Hypothesis, Plan, Success criteria
 yajna new run --experiment EXP-xxxx --kind compute --script notes/projects/PRJ-xxxx-*/runs/RUN-<id>/run.sh
 yajna result --experiment EXP-xxxx run.log --script <path>   # metric runs: ===RESULT=== line -> RUN page + results.tsv
+yajna run record RUN-… --env <VAR>… --outputs <file>…      # commit, host, env and output hashes on a run from `new run`
+yajna run record RUN-… --host oppy --env VAR=<value there>  # a run that ran on another machine
+yajna run shell RUN-… [-c <cmd>] | run reproduce RUN-… | run diff RUN-a RUN-b   # at the run's commit; again and compared
+yajna run shell|reproduce|clean … --on <host>                # on the machine with the data, driven from here over ssh
 yajna log "<what you did and learned, with [[IDs]]>"       # your own file for the day
 yajna new agent "<task>"                                   # the AGS page for this session
 yajna show <ID> | timeline <ID> | tree PRJ-xxxx | runs EXP-xxxx --by <metric>
@@ -71,9 +75,13 @@ one-line instructions under headings such as *Runs*.
 - **Link with `[[ID]]`**, `[[ID|label]]`, `[[PRO-0012@3]]` for a protocol version,
   `[[ns/ID]]` into another repo listed in `[repos]`. A link to an unknown ID fails
   validation. Cite papers as `@citekey` from `references/library.bib`.
-- **Keep *Progress* current.** The project page's *Progress* checklist is the quick view
-  of what is planned and done: tick an item when its work lands, add one when the plan
-  grows, never delete a done item.
+- **Keep *Progress* current.** A project's phases are `PHS` pages, listed one line each on
+  the project page's *Progress*; the work is the checklist on the phase's page: tick an
+  item when its work lands, add one when the plan grows, never delete a done item.
+  `yajna new phase "<title>" --project PRJ-…` adds a phase, `yajna phase start PHS-…`
+  and `phase done PHS-…` record the commits a review of it spans. A project whose
+  *Progress* is still a flat checklist is migrated with `yajna phase migrate PRJ-…`
+  (`--dry-run` first) only when the human asks.
 - **A code project's design lives with its code.** `yajna new project --code` creates
   `code/<slug>/docs/architecture.md` and `code/<slug>/docs/decisions/` (in a `project`
   repo, `docs/` at the root). Keep the architecture current when the design changes, and
@@ -116,8 +124,15 @@ one-line instructions under headings such as *Runs*.
   `git worktree add ../fix-REV-… -b fix/REV-… <head>`, commit the fixes there, address
   the threads with those commits, and tell the human to run `yajna review update REV-…
   --to fix/REV-…` (the next round is then the fixes alone) and to merge the branch.
-- **Large files never go into git history.** Results that matter become `ART` pages;
-  ask before adding anything over a few MB.
+- **Large files never go into git history.** Results that matter become `ART` pages:
+  `yajna data add <file> --project PRJ-… [--run RUN-…]` stores the file in this machine's
+  data store and writes the page (a folder, such as an imaging session, becomes one
+  bundle page; `data get ART-… --only '<glob>'` writes out part of it); `yajna data push` copies it to the notebook's other
+  stores (`[data] push` in `yajna.toml`) and `yajna data get ART-…` brings it back. A
+  run's large outputs are stored when `run record --outputs` records them; `yajna data get
+  RUN-…` brings them back. Run `yajna data check --staged` before committing and store what
+  it lists instead; ask before adding anything over a few MB to git itself. Never run
+  `yajna data drop` or `data free` unless the human asks: they remove data.
 - **Never delete.** Mark `status: abandoned` or `aborted`; git history is the record.
 
 ## Working in a worktree
@@ -150,9 +165,10 @@ Design work is recorded as it is done, not reconstructed afterwards.
   speed. Its predictions say what result changes the plan, and it runs before the step
   that depends on it. Check what an external system really returns before designing a
   round trip on it.
-- **The plan goes on the project page**: a *Progress* item per buildable step, naming the
-  experiment that de-risks it; new questions in *Open questions*; the experiments with
-  their one-line descriptions.
+- **The plan goes in phases**: a `PHS` page per phase (`yajna new phase`), its *Goal*
+  saying what it is for and its *Progress* an item per buildable step, naming the
+  experiment that de-risks it; the project page lists the phases, new questions in *Open
+  questions* and the experiments with their one-line descriptions.
 - **When an approach is dropped**, add a line to *Lessons* (or *What not to try again*):
   what was tried, why it failed, with links. A safety check that trusts a record of an
   action instead of looking at its result is a typical entry.
@@ -182,17 +198,25 @@ the doc's edits, `yajna sync` refuses to publish over the rest, and choosing
 
 Every `compute` run you record must be re-creatable by someone who has only the repo:
 
-1. Record `commit` (the repo commit the run executed at; `yajna result` fills it) and
+1. Record `commit` (the full SHA the run executed at), `host`, `env` and `outputs`:
+   `yajna result` fills them, `yajna run record RUN-…` does for a run from `yajna new run`.
+   `--env` takes the names of variables the run needed outside git (data roots, offline
+   flags; never a credential), `--outputs` the files its result rests on, hashed. If the
+   commit cannot be found, `--commit unknown` and say why under `Notes`. Also record
    `script` in the run's frontmatter. `yajna new run --script <path>` writes a stub at
    that path if it does not exist, under `runs/RUN-<id>/run.sh` beside the page.
 2. The script runs from the repo root inside the project's dev shell
    (`nix develop ./code/<slug> -c <script>`), pins or derives every input it needs
    (data paths, seeds, model versions, environment variables), and produces the same
-   outputs: files under the run's directory and, for metric runs, one
-   `===RESULT=== {...}` line on stdout.
+   outputs: files under `$YAJNA_RUN_DIR` when yajna runs it, else beside itself (the
+   stub's `out=` line does this), never outside the repo except under a root in `env`,
+   and, for metric runs, one `===RESULT=== {...}` line on stdout.
 3. Record in `Notes` what the script does not control (hardware, network, time) and what
    differed between the run and the plan. `yajna validate` fails when `script` points at
    a file that does not exist.
+4. To check a run or try a fix at its commit, `yajna run shell RUN-…` gives the project's
+   dev shell in a worktree at that commit with the run's directory copied in; `yajna run
+   reproduce RUN-…` runs it again into a new run and records whether it `reproduced`.
 
 Hand-recorded runs that were not scripted (an interactive session, a one-off probe) say so
 under `Notes` and still leave a script that gets as close as possible.
