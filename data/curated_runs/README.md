@@ -28,6 +28,7 @@ GPT-OSS MXFP4, pp512 / tg128).
 | NixOS live, `osi` entry, 96 GB reservation, AC: 20B done, 120B out of memory (machine hung; no `run.json`) | `2026-11-07_015100_linux_nixos-osi-ac` | C1, C2, C6 |
 | NixOS live, `osi` entry, 4 GB reservation, AC and battery | `2026-11-07_024217` (AC), `040255` (battery) | C1, C2, C3 |
 | NixOS live, `sspm` entry (DSDT override exposing SSPM only), 4 GB reservation, AC and battery | `2026-11-07_073549` (AC), `135245` (battery) | C1, C2, C3, C7 |
+| NixOS on curiosity (curiosity-live ISO), compute suite vs the Windows baseline, 4 GB reservation, performance profile, AC (phase 5, EXP-20261118-ejmvrd) | `2026-11-18_131646_linux_nixos-curiosity-perf-ac` | |
 | vLLM in WSL, gpt-oss-20b, 8 clients and 1 client | `concurrency/` | C5 |
 | State changes (restore points, NPCF, MSI modes) and the preflight | `bbaum-pc-7/state/` | |
 
