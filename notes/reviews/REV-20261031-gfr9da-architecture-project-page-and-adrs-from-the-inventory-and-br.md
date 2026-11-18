@@ -12,7 +12,7 @@ head: 2952c482d7815bd91cc219fb7a2edfb779123483
 rounds: [62d79e8451969b747e686f65306a2c6e8cc4c45b, 3c9870eccad4af954299cca00a624709f23426ee]
 paths: []
 about: [PRJ-0001]
-status: open              # open | changes_requested | approved | merged | closed
+status: approved          # open | changes_requested | approved | merged | closed
 created: 2026-10-31
 author: agent:claude
 ---
@@ -30,5 +30,6 @@ Committed on branch `docs/yajna-architecture` as `bc2b91c` (yajna init, `.gitatt
 Round 3 (`2952c48`): ADR-0012 supersedes ADR-0011 now that yajna 0.19.0 writes LF on
 Windows: the `.gitattributes` rule stays, the manual conversion goes. `9cfad2c` in this
 range is only the review page's own update.
+- 2026-11-18 11:43 ank approved: Looks good. approved
 
 ## Threads
