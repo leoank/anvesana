@@ -29,5 +29,21 @@
     # power profiles, lid/suspend, LPS0 standby calls, pen screen, n1x-pen, speaker DSP); use
     # with `n1x` and a GNOME desktop. Findings: docs/n1x-linux.md.
     nixosModules.n1x-desktop = ./nix/n1x-desktop.nix;
+
+    # nix develop: the suite on a NixOS host (`uv run bench setup`, then `uv run bench run`).
+    # uv installs the extras' wheels (CUDA, TensorRT, CUTLASS) into .venv on Nix's Python; the
+    # wheels' native libraries find the driver's libcuda and NVML in /run/opengl-driver/lib and
+    # libstdc++ / zlib through LD_LIBRARY_PATH, so no nix-ld is needed. The stdenv's g++ builds
+    # CUTLASS's profiler.
+    devShells.aarch64-linux.default = let
+      pkgs = nixpkgs.legacyPackages.aarch64-linux;
+    in pkgs.mkShell {
+      packages = [ pkgs.uv pkgs.python312 ];
+      env = {
+        UV_PYTHON = "${pkgs.python312}/bin/python3.12";
+        UV_PYTHON_DOWNLOADS = "never";
+        LD_LIBRARY_PATH = "/run/opengl-driver/lib:${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib pkgs.zlib ]}";
+      };
+    };
   };
 }
