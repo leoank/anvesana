@@ -46,6 +46,7 @@ the driver.
 ## Runs
 One line per run after its link, what was tried and what it showed; `yajna validate`
 rejects a bare link here. Metric runs also land in results.tsv.
+- [[RUN-20261118-hb8wfr]] NPCF _DSM disassembled: revision 0x0300 only, function 1 a 2,176-byte opaque blob, function 3 power limits read live from EC 0x260-0x267, function 4 writes EC 0x26A; Linux driver 615.78 speaks NVPCF 1.x/2.x only, so nvidia-powerd quits; H1 false (the table is opaque)
 
 ## Results
 Added 2026-11-07 (agent:claude); partial, H1 not worked on yet.

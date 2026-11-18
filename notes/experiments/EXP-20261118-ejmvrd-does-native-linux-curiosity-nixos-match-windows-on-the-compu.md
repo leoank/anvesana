@@ -55,5 +55,10 @@ rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261118-g2tm8p]] complete second run after the fixes: same picture as the first (GPU kernels within 3 %, cuBLASLt -6 to -13 %, TensorRT RTX +18 to +27 %, CPU math -8 to -12 %); full TensorRT and CUTLASS numbers on Linux
 - [[RUN-20261118-g2z7h4]] CPU probes: big cores hold 4.0 GHz; cpu.math is mostly glibc sin/cos (~75 % of the loop); fp64_gemm on 20 threads is paced by the A725s (397 vs 533 GFLOPS on the X925s alone); H2 false for the CPU, but for the C library and the benchmark, not the CPU
 
+Note 2026-11-18: the ~51 W cap. Linux runs without Dynamic Boost: NPCF answers only `_DSM`
+revision 0x0300 and the open driver 615.78 sends 0x100/0x200, so `nvidia-powerd` quits
+([[RUN-20261118-hb8wfr]]). Whether Windows' extra 10 W comes through NPCF or from the MSI mode
+through the EC is not separated yet (Windows NPCF-off runs measured llama.cpp only).
+
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.

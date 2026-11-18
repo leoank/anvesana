@@ -14,3 +14,6 @@ scratch/
 /result
 /result-*
 nix/local/
+
+# ACPI tables copied by run scripts (vendor tables, like nix/local/)
+notes/runs/*/tables/
