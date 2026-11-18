@@ -52,6 +52,8 @@ power behind each difference.
 One line per run after its link, what was tried and what it showed; `yajna validate`
 rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261118-ejmvy1]] first Linux run against the Windows baseline: tensor and gpu within 3 %, cuBLASLt 7-13 % slower at a ~51 W power cap (Windows ~61 W), TensorRT for RTX 14-27 % faster, CPU math 9-12 % slower; full TensorRT and CUTLASS failed (API, cmake on NixOS)
+- [[RUN-20261118-g2tm8p]] compute run, not yet described
+- [[RUN-20261118-g2z7h4]] CPU probes: big cores hold 4.0 GHz; cpu.math is mostly glibc sin/cos (~75 % of the loop); fp64_gemm on 20 threads is paced by the A725s (397 vs 533 GFLOPS on the X925s alone); H2 false for the CPU, but for the C library and the benchmark, not the CPU
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.
