@@ -4,15 +4,16 @@ type: experiment
 schema_version: 1
 title: Does exposing the hidden SSPM (NVDA8400) device give Linux working GPU power management?
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
-influenced_by: []
+status: concluded            # planned | active | paused | concluded | abandoned
+outcome: inconclusive             # null | positive | negative | inconclusive | infra
+influenced_by: [EXP-20261104-ssfn9a, EXP-20261104-ssfv1c]
 created: 2026-11-04
 author: agent:claude
 protocols: []
 materials: []
 tags: [llm, nixos, acpi, sspm, rtx-spark-replication]
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 ---
 
 ## Question
@@ -63,4 +64,11 @@ written directly: Ventoy's injected initramfs hid the override, and SSPM stayed 
   state to restore, because without SSPM Linux does not boot.
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
+Inconclusive for H1: SSPM cannot be shown to restore AC clocks, because Linux has no low-clock
+state without it; without SSPM it does not boot at all ([[EXP-20261104-ssfv1c]]). The question
+is answered otherwise. With the DSDT override, SSPM (NVDA8400) is present and bound
+(`_STA=15`, driver SSPM_CI). It is not a counterpart of NVPCF: it is the SCMI endpoint through
+which NVIDIA's kernel powers the SoC's USB, I2C, SPI, DSP and PCIe controllers, 75 devices in
+PEPD's DPMT. Inference on `sspm` matches `osi` within noise (2.53-2.55 GHz on AC), so the other
+four hidden devices make no difference to it. The override works only from a directly written
+stick; Ventoy's injected initramfs hid it.

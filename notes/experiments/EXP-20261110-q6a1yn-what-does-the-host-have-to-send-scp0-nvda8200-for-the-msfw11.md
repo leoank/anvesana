@@ -4,12 +4,13 @@ type: experiment
 schema_version: 1
 title: What does the host have to send SCP0 (NVDA8200) for the MSFW1111 sensor hub to start answering on SPI?
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
-influenced_by: []
+status: concluded            # planned | active | paused | concluded | abandoned
+outcome: negative             # null | positive | negative | inconclusive | infra
+influenced_by: [EXP-20261104-ssfy1p]
 created: 2026-11-10
 author: agent:claude
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 protocols: []
 materials: []
 tags: [sensors, scp, accelerometer]
@@ -111,4 +112,10 @@ rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261110-rs3p36]] Windows with nvSCP.sys kept from loading (service Start=4, device disabled after reboot): the SPI HID hub, both sensor collections and the orientation sensor still work and the screen still rotates, so H1 is false
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
+Negative: the host has to send SCP0 nothing. On Linux the coprocessor's firmware, which
+carries the whole hub (spis-hid, hid_sensorhub, the sensor drivers), is already running, and
+the UEFI variables nvSCP would send are absent ([[RUN-20261110-rgc7bg]]). On Windows the hub,
+both sensor collections and screen rotation work with nvSCP.sys kept from loading
+([[RUN-20261110-rs3p36]]). Plan steps 2 to 4 (the mailbox replay and an NVDA8200 driver) were
+dropped. The hub's silence turned out to be on the spi-hid side ([[EXP-20261110-rwymta]]). The
+success criteria were met there, not by this experiment's plan.

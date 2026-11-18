@@ -9,7 +9,8 @@ outcome: positive         # null | positive | negative | inconclusive | infra
 influenced_by: [EXP-20261110-rwymta]
 created: 2026-11-13
 author: agent:claude
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 protocols: []
 materials: []
 tags: [sensors, spi-hid, iio, accelerometer, runtime-pm]
@@ -57,8 +58,6 @@ rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261117-smx27c]] boots of the rebuilt ISO with all three fixes: no timeouts or resets, hysteresis 0 applied, no resuming, iio-sensor-proxy has an orientation on the desk at once; the success criteria hold
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
-
 Positive (Ank, 2026-11-17; written by agent:claude at Ank's word). H1 held: with a sensor off
 the hub reports its interval as 0xffffffff, `hid_sensor_read_poll_value()` returns -EINVAL and
 stock hid-sensor-trigger sleeps ~49.7 days in power-on ([[RUN-20261113-0c42vk]]). H2 held: the

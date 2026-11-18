@@ -4,12 +4,13 @@ type: experiment
 schema_version: 1
 title: "Where can Linux get the hinge angle and tablet mode on curiosity: the sensor hub's custom sensors or its two accelerometers?"
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
+status: concluded            # planned | active | paused | concluded | abandoned
+outcome: positive             # null | positive | negative | inconclusive | infra
 influenced_by: [EXP-20261113-0c42xp]
 created: 2026-11-17
 author: agent:claude
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 protocols: []
 materials: []
 tags: [sensors, hinge, tablet-mode, accelerometer, iio]
@@ -51,4 +52,11 @@ rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261118-020fpn]] with the libinput quirk tagging the I2C keyboard internal: tablet mode on at 284, off at 103, keyboard and touchpad off in tablet mode, screen rotates
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
+Positive. H1 is false: the custom sensors are not the hinge angle. 2000e1.40 sends [0, 113, 0, 0, 0, 0] in every posture and 2000e1.41
+sends nothing ([[RUN-20261117-sm7bfn]]). H2 holds: 200073.36 is in the lid and 200073.39 in the base, the hinge runs along x, and (180 +
+atan2(lid_y, lid_z) - atan2(base_y, base_z)) mod 360 gave 114, 178, 309 and 361 degrees for laptop, flat, tent and tablet. The base
+sensor reads 4 g; its descriptor misstates its unit, which does not affect the angle. The lid switch stays open at 360 degrees, so it
+tells closed from folded back. n1x-tablet-mode turns that angle into SW_TABLET_MODE, on above 200 degrees and off below 160, and passes
+the lid's samples to iio-sensor-proxy. With a libinput quirk that tags the I2C keyboard as internal, tablet mode turns off the keyboard
+and touchpad and the screen rotates ([[RUN-20261117-t6mxjd]], [[RUN-20261118-020fpn]]). Both success criteria hold, in a hand-run try on
+the live system. Not yet checked: the service from a rebuilt image, and suspend/resume.

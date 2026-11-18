@@ -4,15 +4,16 @@ type: experiment
 schema_version: 1
 title: Does WSL2 match native Windows for llama.cpp and for vLLM with 8 concurrent clients?
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
-influenced_by: []
+status: concluded            # planned | active | paused | concluded | abandoned
+outcome: positive             # null | positive | negative | inconclusive | infra
+influenced_by: [EXP-20261104-ssfqvw]
 created: 2026-11-04
 author: agent:claude
 protocols: []
 materials: []
 tags: [llm, wsl, vllm, rtx-spark-replication]
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 ---
 
 ## Question
@@ -54,4 +55,10 @@ the live image, AC, Performance Boost, NPCF on, 96 GB reservation.
 - WSL also served as the Nix build host for the live image.
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
+Positive: WSL2 inherits Windows' clocks. With the same llama.cpp b12119 Linux build, WSL decodes
+within 3 % of Windows for 120B (61.5 vs 63.5 tok/s) and 9 % faster for 20B (85.4 vs 78.4), with no
+low-clock signature. vLLM 0.33.0 with gpt-oss-20b gave 302 tok/s aggregate for 8 clients and
+58.7 for one. It needed a small `--gpu-memory-utilization` and an explicit KV-cache size,
+because CUDA in WSL reports WSL's free RAM as the GPU's free memory. llama.cpp silently fell back
+to the CPU in WSL until the CUDA runtime libraries sat next to the binaries; `bench llm` now
+refuses a run that is not on CUDA.

@@ -4,15 +4,16 @@ type: experiment
 schema_version: 1
 title: "Native NixOS with stock ACPI: is the GPU clock locked on AC only, and how much memory does Linux get?"
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
-influenced_by: []
+status: concluded            # planned | active | paused | concluded | abandoned
+outcome: negative             # null | positive | negative | inconclusive | infra
+influenced_by: [EXP-20261104-ssfqvw, EXP-20261104-ssfn9a]
 created: 2026-11-04
 author: agent:claude
 protocols: []
 materials: []
 tags: [llm, nixos, linux, rtx-spark-replication]
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 ---
 
 ## Question
@@ -71,4 +72,11 @@ Boot details and console transcripts: `data/boot-logs/2026-11-06-nixos-default-n
   enter tok/s.
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
+Negative for H1: Linux has no AC clock lock. The stock-ACPI condition itself cannot be run here:
+with the stock tables Linux has no USB and no I2C, because their controllers are powered
+through SSPM, which the DSDT hides from an OS claiming Windows 2022. So the runs used the
+closest conditions, the `osi` entry and the `sspm` override ([[EXP-20261104-ssfy1p]]). On `osi`,
+decode ran at 2.52-2.56 GHz and 52 W on AC and 1.89-1.90 GHz and 22 W on battery: 7-12 % faster
+than Windows at the same reservation, with no 780 MHz lock. H2 holds: with the default 96 GB
+reservation Linux sees 30.36 GB of RAM and loading 120B ran the machine out of memory; with 4 GB
+reserved it sees 128.9 GB and runs 120B. CUDA memory was not read separately.

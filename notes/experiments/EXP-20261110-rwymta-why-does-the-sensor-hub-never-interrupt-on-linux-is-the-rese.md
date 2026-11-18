@@ -4,12 +4,13 @@ type: experiment
 schema_version: 1
 title: "Why does the sensor hub never interrupt on Linux: is the reset response's edge lost before spi-hid enables its IRQ?"
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
+status: concluded            # planned | active | paused | concluded | abandoned
+outcome: negative             # null | positive | negative | inconclusive | infra
 influenced_by: [EXP-20261110-q6a1yn]
 created: 2026-11-10
 author: agent:claude
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 protocols: []
 materials: []
 tags: [sensors, spi-hid, eint, accelerometer]
@@ -73,4 +74,11 @@ rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261111-0sdjbf]] with `_RST` and the descriptor-size fix the hub works at boot: als, gyro, two accelerometers, two custom sensors; iio-sensor-proxy sees the accelerometer. GNOME does not auto-rotate yet (no tablet-mode switch)
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
+Negative for H1: the order of IRQ enable and reset made no difference. In both orders EINT 190
+never latched and the polled headers were invalid ([[RUN-20261110-sd3esk]]). The cause was on
+the host side, in spi-hid: `_RST` was never evaluated, because `device_reset()` on the
+acpi_device found no handle. Once `_RST` was evaluated the hub answered at once: IRQ 232
+counted and the headers were valid ([[RUN-20261110-t3crtm]]). The next failure was its
+2972-byte report descriptor, which the core's 2048-byte max_input_length check rejected. With
+both fixes in the out-of-tree spi-hid the hub works at boot: ambient light, gyro, two
+accelerometers and two custom sensors ([[RUN-20261111-0sdjbf]]).

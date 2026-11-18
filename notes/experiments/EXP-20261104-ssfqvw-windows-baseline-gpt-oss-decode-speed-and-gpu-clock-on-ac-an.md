@@ -4,15 +4,16 @@ type: experiment
 schema_version: 1
 title: "Windows baseline: GPT-OSS decode speed and GPU clock on AC and battery, with NVPCF on and off"
 project: PRJ-0001
-status: active            # planned | active | paused | concluded | abandoned
-outcome: null             # null | positive | negative | inconclusive | infra
+status: concluded            # planned | active | paused | concluded | abandoned
+outcome: negative             # null | positive | negative | inconclusive | infra
 influenced_by: []
 created: 2026-11-04
 author: agent:claude
 protocols: []
 materials: []
 tags: [llm, nvpcf, windows, rtx-spark-replication]
-review: pending
+review: approved
+approval: {by: ank, on: 2026-11-18}
 ---
 
 ## Question
@@ -65,4 +66,11 @@ llama.cpp b12119, flash attention, pp512 / tg128, 5 reps. "Boost" = MSI Performa
   records every change.
 
 ## Conclusion
-Written once, by a human, when status becomes `concluded`.
+Negative: NVPCF does not set the GPU's clock budget on Windows. Disabling `ACPI\NVDA0820\NPCF`,
+live or across a reboot, changed neither the SM clock (2.32-2.39 GHz on AC, 1.96-2.04 GHz on
+battery) nor decode speed (20B AC 78-89 tok/s, 120B AC about 64), and the article's
+83 -> 31 tok/s and 2 GHz -> 786 MHz did not appear. All four NPCF on/off x AC/battery runs are in
+`data/curated_runs/`, with clocks, power and temperatures, and NPCF was re-enabled and checked
+in the state journal; the success criteria hold. The Windows 120B AC figure (63.5 tok/s)
+matches the article's 65.4. Side results: MSI's power modes move compute (cuBLASLt fp16 41 to
+85 TFLOPS) but barely decode, and a 4 GB GPU reservation costs 120B about 8 % of decode.
