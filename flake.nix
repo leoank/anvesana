@@ -35,10 +35,23 @@
     # wheels' native libraries find the driver's libcuda and NVML in /run/opengl-driver/lib and
     # libstdc++ / zlib through LD_LIBRARY_PATH, so no nix-ld is needed. The stdenv's g++ builds
     # CUTLASS's profiler.
+    # CUTLASS also runs pip's cmake, ninja and nvcc, generic Linux binaries NixOS will not start:
+    # `anvesana-fhs -c "<command>"` runs a command in an FHS environment (bubblewrap) where they
+    # do, with g++ as nvcc's host compiler. The suite runs there as a whole:
+    #   nix develop -c anvesana-fhs -c "uv run bench run --machine bbaum-pc-7"
     devShells.aarch64-linux.default = let
       pkgs = nixpkgs.legacyPackages.aarch64-linux;
+      fhs = pkgs.buildFHSEnv {
+        name = "anvesana-fhs";
+        targetPkgs = p: [ p.uv p.python312 p.gcc p.zlib p.stdenv.cc.cc.lib ];
+        profile = ''
+          export UV_PYTHON=${pkgs.python312}/bin/python3.12 UV_PYTHON_DOWNLOADS=never
+          export LD_LIBRARY_PATH=/run/opengl-driver/lib
+        '';
+        runScript = "bash";
+      };
     in pkgs.mkShell {
-      packages = [ pkgs.uv pkgs.python312 ];
+      packages = [ pkgs.uv pkgs.python312 fhs ];
       env = {
         UV_PYTHON = "${pkgs.python312}/bin/python3.12";
         UV_PYTHON_DOWNLOADS = "never";

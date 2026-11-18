@@ -22,7 +22,9 @@ itself works; these kernels cannot be compiled with it.
 
 Toolchain on Linux: nvcc, CUDA headers, cmake and ninja come from pip
 (`uv sync --extra cutlass`); the host compiler is the system g++. The CUTLASS
-source is the GitHub release matching the nvidia-cutlass wheel.
+source is a GitHub release, newer than the last nvidia-cutlass wheel (4.2.0):
+4.2.0's SM120 block-scaled kernels do not compile with nvcc 13.4 (the generated
+device stubs match no template declaration, with g++ 14 and 15 alike).
 """
 
 from __future__ import annotations
@@ -45,15 +47,18 @@ NAME = "cutlass"
 VERSION = 1  # bump when results stop being comparable with earlier runs
 DESCRIPTION = "CUTLASS profiler GEMMs (NVFP4/MXFP4/MXFP8/FP8 blockwise, 2:4 sparse FP4/FP8); Linux only"
 
-CUTLASS_VERSION = "4.2.0"
+CUTLASS_VERSION = "4.8.1"
 
 # Kernel-name globs for SM120/121 (RTX Blackwell, N1X/GB10). Other GPU generations
 # (sm_90 Hopper, sm_100 datacenter Blackwell) name their kernels differently and
 # need their own families here before this benchmark is useful on them.
+# The block-scaled families take the plain f32 output (no C operand): CUTLASS 4.8.1's generator
+# also emits block-scaled and narrow outputs (FP4/FP6 with scale factors, e5m2) for SM12x, many
+# of which fail its own static asserts, and the output type barely matters at M=N=K=8192.
 FAMILIES = {
-    "nvfp4": "cutlass3x_sm120_bstensorop_gemm_ue4m3xe2m1_ue4m3xe2m1_*",
-    "mxfp4": "cutlass3x_sm120_bstensorop_gemm_ue8m0xe2m1_ue8m0xe2m1_*",
-    "mxfp8": "cutlass3x_sm120_bstensorop_gemm_ue8m0xe4m3_ue8m0xe4m3_*",
+    "nvfp4": "cutlass3x_sm120_bstensorop_gemm_ue4m3xe2m1_ue4m3xe2m1_f32_void_f32_*",
+    "mxfp4": "cutlass3x_sm120_bstensorop_gemm_ue8m0xe2m1_ue8m0xe2m1_f32_void_f32_*",
+    "mxfp8": "cutlass3x_sm120_bstensorop_gemm_ue8m0xe4m3_ue8m0xe4m3_f32_void_f32_*",
     "fp8_blockwise": "cutlass3x_sm120_tensorop_gemm_1x128f32xe4m3_128x128f32xe4m3_*",
     "fp4_sparse": "cutlass3x_sm120_sptensorop_spgemm_e2m1_e2m1_*",
     "fp8_sparse": "cutlass3x_sm120_sptensorop_spgemm_e4m3_e4m3_*",
@@ -102,6 +107,32 @@ def _tool(name: str) -> str:
     return found
 
 
+def unversioned_libs(cuda_root: Path, root: Path) -> Path:
+    """A directory of unversioned symlinks (libcudart.so -> libcudart.so.13, ...).
+
+    The pip wheels ship only versioned libraries, and CMake's FindCUDAToolkit looks for
+    the unversioned names a toolkit install has."""
+    links = root / "cuda-lib-links"
+    links.mkdir(parents=True, exist_ok=True)
+    for so in sorted((cuda_root / "lib").glob("lib*.so.*")):
+        name = links / (so.name.split(".so")[0] + ".so")
+        if not name.exists():
+            name.symlink_to(so)
+    return links
+
+
+def driver_library() -> Path | None:
+    """The driver's libcuda (it comes with the driver, not the toolkit or the wheels)."""
+    dirs = os.environ.get("LD_LIBRARY_PATH", "").split(os.pathsep)
+    dirs += ["/run/opengl-driver/lib", "/usr/lib/aarch64-linux-gnu", "/usr/lib/x86_64-linux-gnu",
+             "/usr/lib64", "/usr/lib/wsl/lib"]
+    for d in filter(None, dirs):
+        for name in ("libcuda.so", "libcuda.so.1"):
+            if (Path(d) / name).exists():
+                return Path(d) / name
+    return None
+
+
 def fetch_source(root: Path) -> Path:
     src = root / f"cutlass-{CUTLASS_VERSION}"
     if (src / "CMakeLists.txt").exists():
@@ -128,16 +159,28 @@ def build_profiler(root: Path, arch: str, jobs: int) -> Path:
     src = fetch_source(root)
     env = dict(os.environ, CUDA_HOME=str(cuda_root), PATH=os.pathsep.join([str(Path(nvcc).parent),
                                                                             os.environ.get("PATH", "")]))
+    links = unversioned_libs(cuda_root, root)
     configure = [
         _tool("cmake"), "-G", "Ninja", "-S", str(src), "-B", str(build),
         f"-DCMAKE_MAKE_PROGRAM={_tool('ninja')}",
         "-DCMAKE_BUILD_TYPE=Release",
         f"-DCMAKE_CUDA_COMPILER={nvcc}",
         f"-DCUDAToolkit_ROOT={cuda_root}",
+        f"-DCMAKE_LIBRARY_PATH={links}",
+        # and the implicit -lcudart of CUDA targets needs the links on the linker's path too
+        f"-DCMAKE_SHARED_LINKER_FLAGS=-L{links}", f"-DCMAKE_EXE_LINKER_FLAGS=-L{links}",
+        # CUTLASS's CUDA.cmake looks for these only under the toolkit root (NO_DEFAULT_PATH),
+        # which a pip layout does not match.
+        f"-DCUDART_LIBRARY={links / 'libcudart.so'}",
+        *([f"-DCUDA_DRIVER_LIBRARY={driver}"] if (driver := driver_library()) else []),
         f"-DPython3_EXECUTABLE={sys.executable}",  # CUTLASS generates its kernels with Python
         f"-DCUTLASS_NVCC_ARCHS={arch}",
         "-DCUTLASS_LIBRARY_OPERATIONS=gemm",
         f"-DCUTLASS_LIBRARY_KERNELS={','.join(FAMILIES.values())}",
+        # 4.8.1's generator emits N=8 and N=16 tiles for SM12x block-scaled FP4 that fail its
+        # own epilogue asserts (EpilogueTileN vs SFVecSize, BLK_K0); they are irrelevant at
+        # M=N=K=8192.
+        "-DCUTLASS_LIBRARY_IGNORE_KERNELS=*_128x8x*,*_128x16x*",
         "-DCUTLASS_ENABLE_TESTS=OFF", "-DCUTLASS_ENABLE_EXAMPLES=OFF",
         "-DCUTLASS_ENABLE_CUBLAS=OFF", "-DCUTLASS_ENABLE_CUDNN=OFF",
         "-DCUTLASS_UNITY_BUILD_ENABLED=ON",
