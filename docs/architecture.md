@@ -162,6 +162,10 @@ writes LF on Windows (ADR-0012).
 | 5. Benchmarks on Linux | Same suite on Linux, including the Linux-only TensorRT and CUTLASS | Linux baseline promoted; `bench compare <machine>@baseline:windows <machine>@baseline:linux` |
 | 6. Platform controls on Linux | Power-mode, keyboard RGB and backlight tools on Linux | Modes switch via `MSI_ACPI` (or a kernel driver); RGB via hidraw |
 
+Each phase is a `PHS` page in `notes/phases/` with its work as a checklist, listed one line each
+on the project page's *Progress* (`notes/README.md`); the RTX Spark replication is tracked
+there as a phase of its own.
+
 ## Open questions
 
 - **Linux collector on hardware.** It has only been tested against a synthetic sysfs:

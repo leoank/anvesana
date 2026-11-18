@@ -26,31 +26,14 @@ can be ported against a reference and its progress measured as a gap list. The d
 in `docs/n1x-bringup-log.md`.
 
 ## Progress
-- [x] Benchmark suite, run records, baselines, health checks, fleet view and scheduled runs (phase 0, before this notebook)
-- [x] Per-node dependencies: `bench setup` / `bench check` from one `uv.lock`
-- [x] `bench inventory` on Windows: devices, drivers, resources, ACPI tables, SMBIOS, CPU registers ([ADR-0001, 0002](../docs/decisions/README.md))
-- [x] Cross-OS `inventory compare` with GAP / MISSING verdicts and exit code (ADR-0003, 0006)
-- [x] HID collections, ACPI-WMI blocks, ESRT, opt-in firmware copies (ADR-0005, 0007)
-- [x] Display (EDID, modes, HDR, brightness, colour profiles), power (sleep states, overlay, powercfg) and vendor settings
-- [x] BIOS and system product in every `run.json` (ADR-0010)
-- [x] MSI power modes mapped to the EC shift-mode byte with the read-only admin probe (ADR-0008)
-- [x] Keyboard RGB protocol decoded and verified on hardware; `scripts/msi-mystic-light.py` (ADR-0009)
-- [x] Repo initialised as a yajna `project` notebook; architecture and decision records written
-- [x] First Linux boot of bbaum-pc-7: `sudo bench inventory collect` on real sysfs (phase 3); NixOS live, `osi` and `sspm` entries, 2026-11-07
-- [ ] Gap list `compare bbaum-pc-7@windows bbaum-pc-7@linux`, SoC controllers first (phase 4)
-- [ ] Benchmarks on Linux, including TensorRT (full) and CUTLASS; Linux baseline (phase 5)
-- [ ] Power modes, keyboard RGB and backlight from Linux (phase 6)
-- [ ] Linux userspace tool for the RGB controller over hidraw
-- [x] Replication setup for the "RTX Spark is 3x slower on Linux" report: `bench llm` (pinned llama.cpp b12119, GPT-OSS 20B/120B), power-condition sweeps, NixOS live image, ACPI hidden-device tool, journaled Windows state changes (ADR-0013 to 0016; docs/rtx-spark-replication.md)
-- [x] Windows baseline with NVPCF on and off, AC and battery ([[EXP-20261104-ssfqvw]])
-- [x] WSL2 llama.cpp and vLLM 8-client runs; WSL as the Nix build host ([[EXP-20261104-ssfs86]])
-- [x] First build of the NixOS live image (fill the open-modules hash; check the boot menu)
-- [x] Native NixOS runs, stock ACPI ([[EXP-20261104-ssfv1c]]), then with SSPM exposed ([[EXP-20261104-ssfy1p]]); stock ACPI cannot boot (no USB without SSPM), so `osi` and `sspm` were run
-- [ ] NPCF and hidden-device disassembly ([[EXP-20261104-ssfn9a]])
-- [x] nvidia-drm display with the ProArt fixes, and N1X hardware support as `nixosModules.n1x` (ADR-0017)
-- [x] Sensor hub on Linux: accelerometers, light and orientation through iio-sensor-proxy ([[EXP-20261113-0c42xp]])
-- [ ] Tablet mode from the hinge angle: a SW_TABLET_MODE bridge for GNOME ([[EXP-20261117-sm6c0e]])
-- [ ] Installed NixOS as the daily driver on bbaum-pc-7: audio, keyboard backlight (Fn + F8), Wi-Fi, suspend; the ProArt audio and keyboard parts are ASUS-specific
+- [x] [[PHS-20261118-eazcrp]] Phase 0 Node health
+- [x] [[PHS-20261118-eazdsa]] Phase 1 Windows reference inventory
+- [x] [[PHS-20261118-eazdtx]] Phase 2 Vendor controls mapped
+- [x] [[PHS-20261118-eazdv0]] Phase 3 Linux inventory on hardware
+- [ ] [[PHS-20261118-eazdx1]] Phase 4 Close the gap list
+- [ ] [[PHS-20261118-eazdzb]] Phase 5 Benchmarks on Linux
+- [ ] [[PHS-20261118-eazdzr]] Phase 6 Platform controls on Linux
+- [ ] [[PHS-20261118-eazdd9]] RTX Spark replication
 
 ## Open questions
 - Does the Linux collector work on real sysfs? It has only been tested on a synthetic tree.
