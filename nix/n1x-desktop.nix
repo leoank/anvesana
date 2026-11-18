@@ -166,6 +166,18 @@ in
   services.udev.extraRules = ''
     SUBSYSTEM=="iio", DEVPATH=="*/spi-MSFW1111:00/*", ATTR{name}=="accel_3d", ENV{IIO_SENSOR_PROXY_TYPE}=""
   '';
+  # libinput disables only internal keyboards in tablet mode (and on lid close), and counts a
+  # keyboard as internal only by quirk; its own quirks cover PS/2 keyboards, not this I2C HID
+  # one (MKB0001, 0db0:1606), so in tablet mode the touchpad went off but the keyboard kept
+  # typing (2026-11-17).
+  environment.etc."libinput/local-overrides.quirks".text = ''
+    [N1X MKB0001 internal keyboard]
+    MatchUdevType=keyboard
+    MatchBus=i2c
+    MatchVendor=0x0DB0
+    MatchProduct=0x1606
+    AttrKeyboardIntegration=internal
+  '';
   # Firefox decodes video through VA-API (nvidia-vaapi-driver, nix/n1x.nix); its README asks for
   # these prefs and an unsandboxed RDD process.
   programs.firefox = {

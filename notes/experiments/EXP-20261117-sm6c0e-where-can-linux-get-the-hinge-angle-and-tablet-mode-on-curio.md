@@ -47,6 +47,8 @@ leaving tablet mode as the screen folds back and returns.
 One line per run after its link, what was tried and what it showed; `yajna validate`
 rejects a bare link here. Metric runs also land in results.tsv.
 - [[RUN-20261117-sm7bfn]] posture walk: the custom sensors do not change (.40 stays 0,113,0,0,0,0; .41 sends nothing), H1 false; the lid and base accelerometers give 114/178/309/361° for laptop/flat/tent/tablet, H2 holds; the base one reads 4 g
+- [[RUN-20261117-t6mxjd]] first try of n1x-tablet-mode: tablet mode on at 314, off at 101, screen rotates, touchpad off; keyboard stayed on (I2C keyboard not tagged internal); lid switch stayed open
+- [[RUN-20261118-020fpn]] with the libinput quirk tagging the I2C keyboard internal: tablet mode on at 284, off at 103, keyboard and touchpad off in tablet mode, screen rotates
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.

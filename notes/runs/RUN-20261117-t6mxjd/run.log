@@ -1,0 +1,5 @@
+23:44:31 lid iio:device3, base iio:device4; tablet mode on above 200, off below 160 degrees
+23:44:32 lid switch open, hinge 106
+23:44:32 tablet mode off at hinge 106
+23:44:47 tablet mode on at hinge 314
+23:46:43 tablet mode off at hinge 101

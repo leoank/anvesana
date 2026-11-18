@@ -66,9 +66,12 @@ SPARKDATA drive under `bootlogs/bbaum-pc-7/`.
   2000e1.41 nothing.
 
 ## Open
-- Auto-rotate: GNOME rotates only in touch mode, which needs a SW_TABLET_MODE switch; none exists.
-  Needs a two-accelerometer to tablet-mode bridge (hinge angle above, lid switch to tell closed
-  from tablet) ([[EXP-20261117-sm6c0e]]).
+- Tablet mode and auto-rotate: `n1x-tablet-mode` (`nixosModules.n1x-desktop`) makes
+  SW_TABLET_MODE from the hinge angle (on above 200 degrees, off below 160) and passes the lid
+  accelerometer to iio-sensor-proxy; with a libinput quirk tagging the I2C keyboard internal,
+  tablet mode turns keyboard and touchpad off and the screen rotates. The lid switch stays open
+  at 360 ([[RUN-20261117-t6mxjd]], [[RUN-20261118-020fpn]]). Tried on the live system by hand;
+  not yet as the service of a rebuilt image, nor across suspend.
 - What custom sensor 2000e1.40's value 113 is.
 - Pen strokes skip and need force (likely libinput's tip threshold; `sudo n1x-pen record` to
   check).
