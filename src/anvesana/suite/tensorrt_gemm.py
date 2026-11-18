@@ -155,8 +155,9 @@ class Engine:
     def __init__(self, plan: bytes, m: int, n: int, k: int):
         self.runtime = trt.Runtime(_LOGGER)
         self.engine = self.runtime.deserialize_cuda_engine(plan)
-        if hasattr(self.engine, "create_runtime_config"):
+        if hasattr(trt, "DynamicShapesKernelSpecializationStrategy"):
             # TensorRT-RTX JIT-compiles kernels on the device; compile them all up front.
+            # (Full TensorRT 11 also has create_runtime_config, but not this setting.)
             config = self.engine.create_runtime_config()
             config.dynamic_shapes_kernel_specialization_strategy = trt.DynamicShapesKernelSpecializationStrategy.EAGER
             self.context = self.engine.create_execution_context(config)
