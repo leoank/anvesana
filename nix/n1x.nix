@@ -217,14 +217,19 @@ in
       modesetting.enable = cfg.nvidiaDisplay;       # nvidia_drm modeset=1 fbdev=1
       nvidiaSettings = false;
       powerManagement.enable = false;
+      # Dynamic Boost: nvidia-powerd shifts power between CPU and GPU through NPCF (NVDA0820), as
+      # NVIDIA's Windows driver does; needs NVPCF 3.x, so driver 620 or later here.
+      dynamicBoost.enable = true;
       package = withCleanOpen (config.boot.kernelPackages.nvidiaPackages.mkDriver {
-        version = "615.78.08";
-        sha256_aarch64 = "5076011350181e81a031f0fd012fe35fe4be37c7820d651fb7aaa894af447a37";
+        # 620.70.06 is the first Linux driver that speaks NVPCF 3.x (_DSM revision 0x300), the
+        # only revision this firmware's NPCF answers; 615.78.08 sent 0x100/0x200 and Dynamic Boost
+        # had no channel, capping sustained GPU power near 51 W (RUN-20261118-hb8wfr).
+        version = "620.70.06";
+        sha256_aarch64 = "3fa65a9271e0dde2a4e58c4965c38885a02a3a42accdcb26fc817410607f3e03";
         # mkDriver requires the x86_64 hash too; it is only fetched on x86_64.
         sha256_64bit = lib.fakeHash;
-        # NAR hash of NVIDIA/open-gpu-kernel-modules at tag 615.78.08 (printed by
-        # the first build in WSL, 2026-11-06).
-        openSha256 = "sha256-HBINiOjL0ZJLIAJeNIBYHBnwgUXtNwPPtnFpAI1YwF4=";
+        # NAR hash of NVIDIA/open-gpu-kernel-modules at tag 620.70.06 (nix flake prefetch).
+        openSha256 = "sha256-dV8vzniUl3UJoG2Q3KdoUJigLRuQeTniUfB670gb1Mw=";
         patchesOpen = [
           ./patches/nvidia-open-drm-aarch64-mappings.patch
           ./patches/nvidia-open-pr1368-semsurf-leak.patch
@@ -233,6 +238,9 @@ in
         usePersistenced = false;
       });
     };
+    # nvidia-powerd also runs dmidecode to identify the machine (it logged "dmidecode: command
+    # not found" without it, 2026-11-18).
+    systemd.services.nvidia-powerd.path = [ pkgs.dmidecode ];
     # The ProArt's qualified tuple also sets vblank=1 (h7607a-nvidia.conf); off by default here.
     boot.extraModprobeConfig = lib.mkIf (cfg.nvidiaDisplay && cfg.nvidiaVblank) "options nvidia_drm vblank=1";
 
