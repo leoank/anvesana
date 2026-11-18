@@ -1,0 +1,500 @@
+power profile: balanced -> performance; AC: 1 1 1 0 
+warning: Git tree '/home/<user>/workspace/repos/leoank/anvesana/main' is dirty
+Machine bbaum-pc-7 on linux: benchmarks cpu, gpu, tensor, cublaslt, tensorrt_rtx, tensorrt, cutlass, llm, disk
+Extras: cutlass, nvidia, tensorrt
+$ uv sync --extra cutlass --extra nvidia --extra tensorrt --locked
+Resolved 33 packages in 0.88ms
+Checked 32 packages in 0.20ms
+
+Readiness: bbaum-pc-7 on linux
+--------------------------------------
+benchmark       module  status  detail
+cpu                cpu      OK        
+gpu                gpu      OK        
+tensor          tensor      OK        
+cublaslt      cublaslt      OK        
+tensorrt_rtx  tensorrt      OK        
+tensorrt      tensorrt      OK        
+cutlass        cutlass      OK        
+llm                llm      OK        
+disk              disk      OK        
+
+READY
+
+warning: Git tree '/home/<user>/workspace/repos/leoank/anvesana/main' is dirty
+================================================================
+ Benchmark run bbaum-pc-7_2026-11-18_143844_linux_nixos-curiosity-perf-ac
+ Machine : bbaum-pc-7 - MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.
+ Store   : notes/runs/RUN-20261118-g2tm8p/results/bbaum-pc-7/bbaum-pc-7_2026-11-18_143844_linux_nixos-curiosity-perf-ac
+ Plan    : cpu, gpu, tensor, cublaslt, tensorrt_rtx, tensorrt, cutlass
+ Settings: 30s per sustained test, 15s cooldown
+================================================================
+
+[idle] 10s baseline...
+
+[1/7] cpu
+================================================================
+ NVIDIA RTX Spark - CPU & Memory Benchmark
+ Workers: 20 | Duration: 30s per test
+================================================================
+
+[1/4] FP64 math recurrence, 20 processes (30s)...
+  -> Throughput                      :   1,687.20 MOps/s  (84.4 per core)
+
+[2/4] FP64 math recurrence, single core (10s)...
+  -> Single-core throughput          :     136.05 MOps/s
+
+[3/4] FP64 GEMM 4096^3 via numpy BLAS (30s)...
+  -> DGEMM                           :     411.79 GFLOPS
+
+[4/4] Memory streaming copy, 20 x 64 MiB buffers (30s)...
+  -> All-core copy bandwidth         :     156.75 GB/s
+  -> Single-core copy bandwidth      :      48.35 GB/s
+
+================ CPU & Memory Summary ==========================
+ cpu.math_mops                                    1,687.20 MOps/s
+ cpu.math_mops_1core                                136.05 MOps/s
+ cpu.fp64_gemm                                      411.79 GFLOPS
+ cpu.mem_copy_bandwidth                             156.75 GB/s
+ cpu.mem_copy_bandwidth_1core                        48.35 GB/s
+================================================================
+
+[2/7] gpu
+================================================================
+ NVIDIA RTX Spark - Blackwell GPU Compute Benchmark
+ Target duration: 30s per compute test
+================================================================
+
+[Hardware Detection]
+  GPU Model           : NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)
+  Compute Capability  : 12.1
+  Streaming Multiprocs: 48 SMs (~6144 CUDA cores)
+  Max SM Clock        : 3003 MHz
+  Total Memory        : 128.90 GB (unified)
+
+[1/3] Unified memory bandwidth (cuMemcpyDtoD, 512 MiB x 40 passes)...
+  -> Device copy bandwidth           :     253.13 GB/s
+
+[2/3] FP32 CUDA-core FMA (30s)...
+  -> Sustained FP32                  :      29.41 TFLOPS  [67.6 W avg, 2503 MHz SM, 77 C peak]
+
+[3/3] Legacy FP16 mma.sync m16n8k16, dependent chain (30s)...
+  -> Sustained FP16 MMA              :     123.35 TFLOPS  [57.8 W avg, 2535 MHz SM, 78 C peak]
+
+================ GPU Benchmark Summary =========================
+ gpu.mem_copy_bandwidth                             253.13 GB/s
+ gpu.fp32_fma                                        29.41 TFLOPS
+ gpu.fp32_fma.avg_power                              67.59 W
+ gpu.fp32_fma.efficiency                              0.44 TFLOPS/W
+ gpu.fp32_fma.avg_sm_clock                        2,503.17 MHz
+ gpu.fp16_mma_legacy                                123.35 TFLOPS
+ gpu.fp16_mma_legacy.avg_power                       57.79 W
+ gpu.fp16_mma_legacy.efficiency                       2.13 TFLOPS/W
+ gpu.fp16_mma_legacy.avg_sm_clock                 2,535.00 MHz
+================================================================
+
+[3/7] tensor
+================================================================
+ Tensor-core peak throughput (mma.sync microbenchmark)
+ NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU) | sm_121a | 48 SMs | 10s per precision
+================================================================
+
+[1/9] fp16
+  -> fp16                            :     124.73 TFLOPS  [64.0 W avg, 2538 MHz SM, 74 C peak]
+
+[2/9] fp16_f16acc
+  -> fp16_f16acc                     :     124.58 TFLOPS  [51.7 W avg, 2535 MHz SM, 73 C peak]
+
+[3/9] bf16
+  -> bf16                            :     124.56 TFLOPS  [53.8 W avg, 2535 MHz SM, 75 C peak]
+
+[4/9] fp8
+  -> fp8                             :     248.07 TFLOPS  [68.0 W avg, 2522 MHz SM, 80 C peak]
+
+[5/9] nvfp4
+  -> nvfp4                           :     486.76 TFLOPS  [61.9 W avg, 2473 MHz SM, 79 C peak]
+
+[6/9] mxfp4
+  -> mxfp4                           :     488.33 TFLOPS  [61.7 W avg, 2483 MHz SM, 80 C peak]
+
+[7/9] fp16_sparse
+  -> fp16_sparse                     :     243.38 TFLOPS  [61.6 W avg, 2475 MHz SM, 80 C peak]
+
+[8/9] fp8_sparse
+  -> fp8_sparse                      :     480.12 TFLOPS  [61.5 W avg, 2440 MHz SM, 81 C peak]
+
+[9/9] nvfp4_sparse
+  -> nvfp4_sparse                    :     944.09 TFLOPS  [61.2 W avg, 2403 MHz SM, 81 C peak]
+
+Peak: 944.1 TFLOPS (nvfp4_sparse) = 0.944 PFLOPS
+
+================ Tensor Peak Summary ===========================
+ tensor.fp16                                        124.73 TFLOPS
+ tensor.fp16_f16acc                                 124.58 TFLOPS
+ tensor.bf16                                        124.56 TFLOPS
+ tensor.fp8                                         248.07 TFLOPS
+ tensor.nvfp4                                       486.76 TFLOPS
+ tensor.mxfp4                                       488.33 TFLOPS
+ tensor.fp16_sparse                                 243.38 TFLOPS
+ tensor.fp8_sparse                                  480.12 TFLOPS
+ tensor.nvfp4_sparse                                944.09 TFLOPS
+================================================================
+
+[4/7] cublaslt
+================================================================
+ cuBLASLt GEMM throughput
+ cuBLASLt 130802 | M=N=K=8192 | 10s per precision
+================================================================
+
+[1/6] fp32: autotuning...
+  -> fp32                            :      13.33 TFLOPS  [56.0 W avg, 1952 MHz SM, 80 C peak]
+
+[2/6] tf32: autotuning...
+  -> tf32                            :      44.35 TFLOPS  [51.0 W avg, 1951 MHz SM, 81 C peak]
+
+[3/6] fp16: autotuning...
+  -> fp16                            :      76.35 TFLOPS  [50.9 W avg, 1797 MHz SM, 82 C peak]
+
+[4/6] bf16: autotuning...
+  -> bf16                            :      79.00 TFLOPS  [51.5 W avg, 1843 MHz SM, 82 C peak]
+
+[5/6] fp8: autotuning...
+  -> fp8                             :     158.42 TFLOPS  [53.7 W avg, 1867 MHz SM, 84 C peak]
+
+[6/6] nvfp4: autotuning...
+  -> nvfp4                           :     288.44 TFLOPS  [46.9 W avg, 1711 MHz SM, 81 C peak]
+
+================ cuBLASLt Summary ==============================
+ cublaslt.fp32                                       13.33 TFLOPS
+ cublaslt.tf32                                       44.35 TFLOPS
+ cublaslt.fp16                                       76.35 TFLOPS
+ cublaslt.bf16                                       79.00 TFLOPS
+ cublaslt.fp8                                       158.42 TFLOPS
+ cublaslt.nvfp4                                     288.44 TFLOPS
+================================================================
+
+[5/7] tensorrt_rtx
+================================================================
+ tensorrt_rtx linear-layer throughput
+ tensorrt_rtx 1.7.1.116 | M=N=K=8192 | 10s per precision
+================================================================
+
+[1/6] fp16: building engine...
+     built in 0.4s
+  -> fp16                            :      33.70 TFLOPS  [47.7 W avg, 2406 MHz SM, 79 C peak]
+
+[2/6] bf16: building engine...
+     built in 0.5s
+  -> bf16                            :      33.97 TFLOPS  [48.6 W avg, 2410 MHz SM, 81 C peak]
+
+[3/6] fp8: building engine...
+     built in 0.5s
+  -> fp8                             :      77.79 TFLOPS  [49.2 W avg, 1758 MHz SM, 81 C peak]
+
+[4/6] nvfp4: building engine...
+     built in 0.8s
+  -> nvfp4                           :      32.14 TFLOPS  [41.7 W avg, 2370 MHz SM, 80 C peak]
+
+[5/6] fp16_sparse: building engine...
+     built in 0.5s
+  -> fp16_sparse                     :      33.00 TFLOPS  [42.0 W avg, 2400 MHz SM, 79 C peak]
+
+[6/6] fp8_sparse: building engine...
+     built in 0.5s
+  -> fp8_sparse                      :      79.93 TFLOPS  [50.1 W avg, 1922 MHz SM, 81 C peak]
+
+================ tensorrt_rtx Summary ==========================
+ tensorrt_rtx.fp16                                   33.70 TFLOPS
+ tensorrt_rtx.bf16                                   33.97 TFLOPS
+ tensorrt_rtx.fp8                                    77.79 TFLOPS
+ tensorrt_rtx.nvfp4                                  32.14 TFLOPS
+ tensorrt_rtx.fp16_sparse                            33.00 TFLOPS
+ tensorrt_rtx.fp8_sparse                             79.93 TFLOPS
+================================================================
+
+[6/7] tensorrt
+================================================================
+ tensorrt linear-layer throughput
+ tensorrt 11.4.0.106 | M=N=K=8192 | 10s per precision
+================================================================
+
+[1/6] fp16: building engine...
+     built in 8.2s
+  -> fp16                            :      78.13 TFLOPS  [51.6 W avg, 1810 MHz SM, 79 C peak]
+
+[2/6] bf16: building engine...
+     built in 8.3s
+  -> bf16                            :      80.84 TFLOPS  [50.4 W avg, 1810 MHz SM, 81 C peak]
+
+[3/6] fp8: building engine...
+     built in 4.0s
+  -> fp8                             :     138.58 TFLOPS  [54.4 W avg, 1798 MHz SM, 81 C peak]
+
+[4/6] nvfp4: building engine...
+     built in 8.9s
+  -> nvfp4                           :      65.83 TFLOPS  [55.7 W avg, 1971 MHz SM, 82 C peak]
+
+[5/6] fp16_sparse: building engine...
+     built in 9.1s
+  -> fp16_sparse                     :      85.66 TFLOPS  [51.6 W avg, 1940 MHz SM, 81 C peak]
+
+[6/6] fp8_sparse: building engine...
+     built in 5.0s
+  -> fp8_sparse                      :     185.02 TFLOPS  [57.4 W avg, 2036 MHz SM, 82 C peak]
+
+================ tensorrt Summary ==============================
+ tensorrt.fp16                                       78.13 TFLOPS
+ tensorrt.bf16                                       80.84 TFLOPS
+ tensorrt.fp8                                       138.58 TFLOPS
+ tensorrt.nvfp4                                      65.83 TFLOPS
+ tensorrt.fp16_sparse                                85.66 TFLOPS
+ tensorrt.fp8_sparse                                185.02 TFLOPS
+================================================================
+
+[7/7] cutlass
+================================================================
+ CUTLASS profiler GEMM throughput
+ CUTLASS 4.8.1 | M=N=K=8192
+================================================================
+
+[build] cutlass_profiler
+     /home/<user>/.cache/anvesana/cutlass/build-sm121a/tools/profiler/cutlass_profiler (sm_121a)
+
+[1/6] nvfp4: profiling every kernel in the family...
+  -> nvfp4                           :     108.21 TFLOPS  [25.8 W avg, 2363 MHz SM, 75 C peak]
+     best kernel: cutlass3x_sm120_bstensorop_gemm_ue4m3xe2m1_ue4m3xe2m1_f32_void_f32_256x128x128_1x1x1_0_tnt_align32_cooperative_o_vs16
+
+[2/6] mxfp4: profiling every kernel in the family...
+  -> mxfp4                           :     105.78 TFLOPS  [29.5 W avg, 2369 MHz SM, 78 C peak]
+     best kernel: cutlass3x_sm120_bstensorop_gemm_ue8m0xe2m1_ue8m0xe2m1_f32_void_f32_256x128x128_1x1x1_0_tnt_align32_cooperative_o_vs32
+
+[3/6] mxfp8: profiling every kernel in the family...
+  -> mxfp8                           :      49.07 TFLOPS  [23.8 W avg, 2348 MHz SM, 72 C peak]
+     best kernel: cutlass3x_sm120_bstensorop_gemm_ue8m0xe4m3_ue8m0xe4m3_f32_void_f32_128x128x128_1x1x1_0_tnt_align128_pingpong_q
+
+[4/6] fp8_blockwise: profiling every kernel in the family...
+  -> fp8_blockwise                   :      52.06 TFLOPS  [25.0 W avg, 2348 MHz SM, 71 C peak]
+     best kernel: cutlass3x_sm120_tensorop_gemm_1x128f32xe4m3_128x128f32xe4m3_f32_void_f16_128x128x128_1x1x1_0_tnn_align128_cooperative_q
+
+[5/6] fp4_sparse: profiling every kernel in the family...
+  -> fp4_sparse                      :      93.58 TFLOPS  [35.8 W avg, 2381 MHz SM, 74 C peak]
+     best kernel: cutlass3x_sm120_sptensorop_spgemm_e2m1_e2m1_f32_void_e5m2_128x128x256_1x1x1_0_tnt_align256_q
+
+[6/6] fp8_sparse: profiling every kernel in the family...
+  -> fp8_sparse                      :      57.82 TFLOPS  [24.6 W avg, 2352 MHz SM, 71 C peak]
+     best kernel: cutlass3x_sm120_sptensorop_spgemm_e4m3_e4m3_f32_f16_e4m3_128x128x256_1x1x1_0_tnt_align256_q
+
+================ CUTLASS Summary ===============================
+ cutlass.nvfp4                                      108.21 TFLOPS
+ cutlass.mxfp4                                      105.78 TFLOPS
+ cutlass.mxfp8                                       49.07 TFLOPS
+ cutlass.fp8_blockwise                               52.06 TFLOPS
+ cutlass.fp4_sparse                                  93.58 TFLOPS
+ cutlass.fp8_sparse                                  57.82 TFLOPS
+================================================================
+
+[cooldown] 10s thermal descent...
+
+================================================================
+ Results
+================================================================
+ cpu.math_mops                                1,687.20 MOps/s
+ cpu.math_mops_1core                            136.05 MOps/s
+ cpu.fp64_gemm                                  411.79 GFLOPS
+ cpu.mem_copy_bandwidth                         156.75 GB/s
+ cpu.mem_copy_bandwidth_1core                    48.35 GB/s
+ gpu.mem_copy_bandwidth                         253.13 GB/s
+ gpu.fp32_fma                                    29.41 TFLOPS
+ gpu.fp16_mma_legacy                            123.35 TFLOPS
+ tensor.fp16                                    124.73 TFLOPS  (100% of 125 advertised)
+ tensor.fp16_f16acc                             124.58 TFLOPS  (100% of 125 advertised)
+ tensor.bf16                                    124.56 TFLOPS  (100% of 125 advertised)
+ tensor.fp8                                     248.07 TFLOPS  (99% of 250 advertised)
+ tensor.nvfp4                                   486.76 TFLOPS  (97% of 500 advertised)
+ tensor.mxfp4                                   488.33 TFLOPS  (98% of 500 advertised)
+ tensor.fp16_sparse                             243.38 TFLOPS  (97% of 250 advertised)
+ tensor.fp8_sparse                              480.12 TFLOPS  (96% of 500 advertised)
+ tensor.nvfp4_sparse                            944.09 TFLOPS  (94% of 1000 advertised)
+ cublaslt.fp32                                   13.33 TFLOPS
+ cublaslt.tf32                                   44.35 TFLOPS
+ cublaslt.fp16                                   76.35 TFLOPS
+ cublaslt.bf16                                   79.00 TFLOPS
+ cublaslt.fp8                                   158.42 TFLOPS
+ cublaslt.nvfp4                                 288.44 TFLOPS
+ tensorrt_rtx.fp16                               33.70 TFLOPS
+ tensorrt_rtx.bf16                               33.97 TFLOPS
+ tensorrt_rtx.fp8                                77.79 TFLOPS
+ tensorrt_rtx.nvfp4                              32.14 TFLOPS
+ tensorrt_rtx.fp16_sparse                        33.00 TFLOPS
+ tensorrt_rtx.fp8_sparse                         79.93 TFLOPS
+ tensorrt.fp16                                   78.13 TFLOPS
+ tensorrt.bf16                                   80.84 TFLOPS
+ tensorrt.fp8                                   138.58 TFLOPS
+ tensorrt.nvfp4                                  65.83 TFLOPS
+ tensorrt.fp16_sparse                            85.66 TFLOPS
+ tensorrt.fp8_sparse                            185.02 TFLOPS
+ cutlass.nvfp4                                  108.21 TFLOPS
+ cutlass.mxfp4                                  105.78 TFLOPS
+ cutlass.mxfp8                                   49.07 TFLOPS
+ cutlass.fp8_blockwise                           52.06 TFLOPS
+ cutlass.fp4_sparse                              93.58 TFLOPS
+ cutlass.fp8_sparse                              57.82 TFLOPS
+
+ Status: complete
+ Saved : notes/runs/RUN-20261118-g2tm8p/results/bbaum-pc-7/bbaum-pc-7_2026-11-18_143844_linux_nixos-curiosity-perf-ac/run.json
+========================================================================
+ bbaum-pc-7 windows 2026-10-29  vs  bbaum-pc-7 linux 2026-11-18 nixos-curiosity-perf-ac
+========================================================================
+
+System
+------------------------------------------------------------------------------------------------------------------------------------
+                                           bbaum-pc-7 windows 2026-10-29         bbaum-pc-7 linux 2026-11-18 nixos-curiosity-perf-ac
+run                                 bbaum-pc-7_2026-10-29_152707_windows  bbaum-pc-7_2026-11-18_143844_linux_nixos-curiosity-perf-ac
+started                                        2026-10-29T15:27:07+00:00                                   2026-11-18T14:38:44+00:00
+hostname                                                      bbaum-pc-7                                                   curiosity
+platform                                       Windows-11-10.0.28000-SP0                         Linux-7.0.14-aarch64-with-glibc2.42
+bios                                                                   -                            Insyde G2621NMS.10B (09/30/2026)
+nvidia_driver                                                     621.01                                                   615.78.08
+power_profile                       mode=Best performance, plan=Balanced                                        governor=performance
+on_ac_power                                                         True                                                        True
+ram_gb                                                             32.75                                                       128.9
+gpu_mem_total_gb                                                  103.08                                                           -
+gpu_power_limit_w                                                   None                                                        None
+gpu_max_sm_clock_mhz                                                3003                                                        3003
+python                                                           3.12.16                                                     3.12.15
+gpu                   NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)          NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)
+
+Benchmarks
+----------------------------------------------------------------------------------------------------------------------------------------
+metric                           unit  bbaum-pc-7 windows 2026-10-29  bbaum-pc-7 linux 2026-11-18 nixos-curiosity-perf-ac         change
+cpu.math_mops                  MOps/s                       1,919.56                                             1,687.20   -12.1% worse
+cpu.math_mops_1core            MOps/s                         148.56                                               136.05    -8.4% worse
+cpu.fp64_gemm                  GFLOPS                         426.54                                               411.79    -3.5% worse
+cpu.mem_copy_bandwidth           GB/s                         150.76                                               156.75   +4.0% better
+cpu.mem_copy_bandwidth_1core     GB/s                          45.66                                                48.35   +5.9% better
+gpu.mem_copy_bandwidth           GB/s                         251.57                                               253.13          +0.6%
+gpu.fp32_fma                   TFLOPS                          29.49                                                29.41          -0.3%
+gpu.fp16_mma_legacy            TFLOPS                         124.31                                               123.35          -0.8%
+tensor.fp16                    TFLOPS                         125.44                                               124.73          -0.6%
+tensor.fp16_f16acc             TFLOPS                         125.49                                               124.58          -0.7%
+tensor.bf16                    TFLOPS                         125.46                                               124.56          -0.7%
+tensor.fp8                     TFLOPS                         247.23                                               248.07          +0.3%
+tensor.nvfp4                   TFLOPS                         484.32                                               486.76          +0.5%
+tensor.mxfp4                   TFLOPS                         496.07                                               488.33    -1.6% worse
+tensor.fp16_sparse             TFLOPS                         245.93                                               243.38    -1.0% worse
+tensor.fp8_sparse              TFLOPS                         490.31                                               480.12    -2.1% worse
+tensor.nvfp4_sparse            TFLOPS                         973.29                                               944.09    -3.0% worse
+cublaslt.fp32                  TFLOPS                          14.63                                                13.33    -8.9% worse
+cublaslt.tf32                  TFLOPS                          47.29                                                44.35    -6.2% worse
+cublaslt.fp16                  TFLOPS                          85.63                                                76.35   -10.8% worse
+cublaslt.bf16                  TFLOPS                          86.34                                                79.00    -8.5% worse
+cublaslt.fp8                   TFLOPS                         170.20                                               158.42    -6.9% worse
+cublaslt.nvfp4                 TFLOPS                         330.70                                               288.44   -12.8% worse
+tensorrt_rtx.fp16              TFLOPS                          28.34                                                33.70  +18.9% better
+tensorrt_rtx.bf16              TFLOPS                          28.21                                                33.97  +20.4% better
+tensorrt_rtx.fp8               TFLOPS                          63.63                                                77.79  +22.2% better
+tensorrt_rtx.nvfp4             TFLOPS                          25.99                                                32.14  +23.7% better
+tensorrt_rtx.fp16_sparse       TFLOPS                          27.97                                                33.00  +18.0% better
+tensorrt_rtx.fp8_sparse        TFLOPS                          63.07                                                79.93  +26.7% better
+disk.seq_write                   MB/s                       2,777.03                                                    -               
+disk.seq_read                    MB/s                       4,058.18                                                    -               
+disk.rand4k_write_qd1            IOPS                      35,947.17                                                    -               
+disk.rand4k_write_qd1_latency      ms                           0.03                                                    -               
+disk.rand4k_read_qd1             IOPS                      12,029.98                                                    -               
+disk.rand4k_read_qd1_latency       ms                           0.08                                                    -               
+disk.rand4k_read_qd8             IOPS                     125,899.27                                                    -               
+tensorrt.fp16                  TFLOPS                              -                                                78.13               
+tensorrt.bf16                  TFLOPS                              -                                                80.84               
+tensorrt.fp8                   TFLOPS                              -                                               138.58               
+tensorrt.nvfp4                 TFLOPS                              -                                                65.83               
+tensorrt.fp16_sparse           TFLOPS                              -                                                85.66               
+tensorrt.fp8_sparse            TFLOPS                              -                                               185.02               
+cutlass.nvfp4                  TFLOPS                              -                                               108.21               
+cutlass.mxfp4                  TFLOPS                              -                                               105.78               
+cutlass.mxfp8                  TFLOPS                              -                                                49.07               
+cutlass.fp8_blockwise          TFLOPS                              -                                                52.06               
+cutlass.fp4_sparse             TFLOPS                              -                                                93.58               
+cutlass.fp8_sparse             TFLOPS                              -                                                57.82               
+
+Telemetry per phase
+--------------------------------------------------------------------------------------------------------------------------------------
+phase                      measure  bbaum-pc-7 windows 2026-10-29  bbaum-pc-7 linux 2026-11-18 nixos-curiosity-perf-ac          change
+idle               avg_gpu_power_w                            1.5                                                  4.1   +173.5% worse
+idle              peak_gpu_power_w                            2.9                                                  4.7    +62.9% worse
+idle          avg_gpu_sm_clock_mhz                        1,536.5                                              2,353.9   +53.2% better
+idle             avg_gpu_clock_mhz                        1,536.5                                              2,353.9   +53.2% better
+idle               peak_gpu_temp_c                           43.0                                                 50.0    +16.3% worse
+idle               peak_soc_temp_c                           63.7                                                 52.8   -17.1% better
+idle                peak_thermal_c                           63.7                                                 52.8   -17.1% better
+idle              avg_cpu_util_pct                            6.0                                                  2.4    -59.8% worse
+idle              avg_cpu_freq_mhz                        2,199.0                                              3,406.0   +54.9% better
+idle              peak_ram_used_gb                            8.7                                                 24.7   +182.9% worse
+idle                 gpu_energy_wh                         0.0038                                               0.0104   +173.7% worse
+cpu                avg_gpu_power_w                            0.7                                                  4.7   +594.0% worse
+cpu               peak_gpu_power_w                            4.7                                                  5.9    +25.1% worse
+cpu           avg_gpu_sm_clock_mhz                        1,115.8                                              2,271.4  +103.6% better
+cpu              avg_gpu_clock_mhz                        1,115.8                                              2,271.4  +103.6% better
+cpu                peak_gpu_temp_c                           58.0                                                 67.0    +15.5% worse
+cpu                peak_soc_temp_c                           98.4                                                 89.3    -9.2% better
+cpu                 peak_thermal_c                           98.4                                                 89.3    -9.2% better
+cpu               avg_cpu_util_pct                           78.4                                                 81.0    +3.3% better
+cpu               avg_cpu_freq_mhz                        3,144.8                                              3,406.0    +8.3% better
+cpu               peak_ram_used_gb                           11.8                                                 27.6   +134.0% worse
+cpu                  gpu_energy_wh                         0.0223                                               0.1525   +583.9% worse
+gpu                avg_gpu_power_w                           59.8                                                 60.7     +1.6% worse
+gpu               peak_gpu_power_w                           70.8                                                 74.3     +5.0% worse
+gpu           avg_gpu_sm_clock_mhz                        2,547.8                                              2,519.3     -1.1% worse
+gpu              avg_gpu_clock_mhz                        2,547.8                                              2,519.3     -1.1% worse
+gpu                peak_gpu_temp_c                           72.0                                                 78.0     +8.3% worse
+gpu                peak_soc_temp_c                           83.9                                                 85.7     +2.1% worse
+gpu                 peak_thermal_c                           83.9                                                 85.7     +2.1% worse
+gpu               avg_cpu_util_pct                            4.0                                                  5.6   +37.6% better
+gpu               avg_cpu_freq_mhz                        1,660.3                                              3,406.0  +105.1% better
+gpu               peak_ram_used_gb                            8.9                                                 24.9   +179.8% worse
+gpu                  gpu_energy_wh                         1.3348                                               1.3747     +3.0% worse
+tensor             avg_gpu_power_w                           64.3                                                 59.7    -7.2% better
+tensor            peak_gpu_power_w                           76.3                                                 70.4    -7.7% better
+tensor        avg_gpu_sm_clock_mhz                        2,520.3                                              2,489.6     -1.2% worse
+tensor           avg_gpu_clock_mhz                        2,520.3                                              2,489.6     -1.2% worse
+tensor             peak_gpu_temp_c                           78.0                                                 81.0     +3.8% worse
+tensor             peak_soc_temp_c                           94.8                                                 76.7   -19.1% better
+tensor              peak_thermal_c                           94.8                                                 76.7   -19.1% better
+tensor            avg_cpu_util_pct                            4.5                                                  5.6   +24.7% better
+tensor            avg_cpu_freq_mhz                        1,477.0                                              3,406.0  +130.6% better
+tensor            peak_ram_used_gb                            8.9                                                 24.9   +181.3% worse
+tensor               gpu_energy_wh                         1.8661                                               1.7485    -6.3% better
+cublaslt           avg_gpu_power_w                           61.3                                                 51.9   -15.4% better
+cublaslt          peak_gpu_power_w                           71.1                                                 61.9   -13.0% better
+cublaslt      avg_gpu_sm_clock_mhz                        2,005.5                                              1,899.3     -5.3% worse
+cublaslt         avg_gpu_clock_mhz                        2,005.5                                              1,899.3     -5.3% worse
+cublaslt           peak_gpu_temp_c                           76.0                                                 83.0     +9.2% worse
+cublaslt           peak_soc_temp_c                           85.8                                                 82.7    -3.6% better
+cublaslt            peak_thermal_c                           85.8                                                 82.7    -3.6% better
+cublaslt          avg_cpu_util_pct                            6.0                                                  5.6     -6.0% worse
+cublaslt          avg_cpu_freq_mhz                        1,660.8                                              3,406.0  +105.1% better
+cublaslt          peak_ram_used_gb                            9.6                                                 26.1   +171.4% worse
+cublaslt             gpu_energy_wh                         2.7357                                               2.5860    -5.5% better
+tensorrt_rtx       avg_gpu_power_w                           39.6                                                 45.0    +13.6% worse
+tensorrt_rtx      peak_gpu_power_w                           61.0                                                 51.5   -15.5% better
+tensorrt_rtx  avg_gpu_sm_clock_mhz                        2,061.7                                              2,301.8   +11.6% better
+tensorrt_rtx     avg_gpu_clock_mhz                        2,061.7                                              2,301.8   +11.6% better
+tensorrt_rtx       peak_gpu_temp_c                           74.0                                                 81.0     +9.5% worse
+tensorrt_rtx       peak_soc_temp_c                           87.5                                                 87.3           -0.2%
+tensorrt_rtx        peak_thermal_c                           87.5                                                 87.3           -0.2%
+tensorrt_rtx      avg_cpu_util_pct                            9.7                                                  6.1    -37.0% worse
+tensorrt_rtx      avg_cpu_freq_mhz                        2,159.3                                              3,406.0   +57.7% better
+tensorrt_rtx      peak_ram_used_gb                            9.5                                                 25.9   +173.3% worse
+tensorrt_rtx         gpu_energy_wh                         2.4131                                               2.4156           +0.1%
+whole run          avg_gpu_power_w                           38.6                                                 34.9    -9.8% better
+whole run         peak_gpu_power_w                           76.3                                                 74.3    -2.7% better
+whole run     avg_gpu_sm_clock_mhz                        1,874.5                                              2,277.5   +21.5% better
+whole run        avg_gpu_clock_mhz                        1,874.5                                              2,277.5   +21.5% better
+whole run          peak_gpu_temp_c                           78.0                                                 83.0     +6.4% worse
+whole run          peak_soc_temp_c                           98.4                                                 89.3    -9.2% better
+whole run           peak_thermal_c                           98.4                                                 89.3    -9.2% better
+whole run         avg_cpu_util_pct                           17.4                                                 11.3    -35.3% worse
+whole run         avg_cpu_freq_mhz                        2,004.2                                              3,406.0   +69.9% better
+whole run         peak_ram_used_gb                           11.8                                                 29.7   +152.1% worse
+whole run            gpu_energy_wh                         8.4697                                              15.5213    +83.3% worse
+
+Markdown written to notes/runs/RUN-20261118-g2tm8p/compare.md

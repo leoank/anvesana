@@ -6,8 +6,8 @@ title: "Phase 5: run the benchmark suite on Linux and compare it with the Window
 model: claude-opus-5-5
 harness: claude-code
 started: 2026-11-18T13:16+00:00
-finished: 2026-11-18T13:32+00:00
-created_entities: [EXP-20261118-ejmvrd, RUN-20261118-ejmvy1]
+finished: 2026-11-18T15:06+00:00
+created_entities: [EXP-20261118-ejmvrd, RUN-20261118-ejmvy1, RUN-20261118-g2z7h4, RUN-20261118-g2tm8p]
 edited_entities: [PHS-20261118-eazdzb]
 outcome: done             # done | failed | aborted | pending
 created: 2026-11-18
@@ -38,3 +38,13 @@ gpu match Windows within 3 %; cuBLASLt is 7-13 % slower because the GPU's sustai
 the run into `data/curated_runs/` (user name in paths replaced). Not done: fixing full TensorRT
 and CUTLASS, the CPU cause, the GPU power budget (phase 6: the MSI mode from Linux), promoting a
 Linux baseline (Ank's call).
+
+
+Ank then asked for the fixes and the CPU deficit. Full TensorRT: the RTX-only setting is now
+applied only when TensorRT has it. CUTLASS took five changes (FHS environment `anvesana-fhs`,
+unversioned library links, CUTLASS 4.8.1, plain-output block-scaled kernels, explicit cudart and
+libcuda); gcc 14 instead of 15 as nvcc's host compiler made no difference and was dropped. CPU:
+[[RUN-20261118-g2z7h4]], glibc's sin/cos and OpenBLAS paced by the A725 cores, the X925s at
+4.0 GHz. A complete second run, [[RUN-20261118-g2tm8p]], repeats the first run's picture.
+Proposed for Ank: changing the CPU benchmark for hybrid CPUs (a methodology VERSION bump) and
+looking at CUTLASS's low, low-power numbers.
