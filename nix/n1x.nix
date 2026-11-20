@@ -5,8 +5,9 @@
 # Taken from the ASUS ProArt P16 Arch build (github.com/pfeifferj/archlinuxarm-proart-p16
 # @ 3484cc0, MIT) minus its ASUS-only parts (hid-asus, ASUS audio/amp firmware):
 #   kernel      Ubuntu linux-nvidia-7.0 7.0.0-1022 (Linux 7.0.14) + ACPI-override allocation fix
-#   NVIDIA      615.78.08 open modules, nvidia-drm modeset + fbdev, with the aarch64 DRM
-#               mapping fix and the PR #1368 leak fix; `n1x.nvidiaDisplay = false`
+#   NVIDIA      620.70.06 open modules, nvidia-drm modeset + fbdev, with the aarch64 DRM
+#               mapping fix, the PR #1368 leak fix and an NVPCF 3.x buffer-size fix;
+#               Dynamic Boost (nvidia-powerd); `n1x.nvidiaDisplay = false`
 #               falls back to simpledrm
 #               (without the ProArt tuple's vblank=1: on bbaum-pc-7 it stalls every page flip)
 #   audio       NVIDIA's MT8901 SoundWire UCM profiles (alsa-ucm-conf PR 862, not yet released);
@@ -233,6 +234,9 @@ in
         patchesOpen = [
           ./patches/nvidia-open-drm-aarch64-mappings.patch
           ./patches/nvidia-open-pr1368-semsurf-leak.patch
+          # 620.70.06 shrinks NVPCF 3.x read buffers to a quarter; NPCF's 2,176-byte static
+          # table then never fits and nvidia-powerd quits (2026-11-20).
+          ./patches/nvidia-open-nvpcf3x-read-size.patch
         ];
         useSettings = false;
         usePersistenced = false;
