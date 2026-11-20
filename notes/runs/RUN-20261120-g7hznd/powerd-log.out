@@ -1,0 +1,8 @@
+
+Program stopped.
+0x0000fffff7fdbc80 in _start () from /nix/store/fgkgp2zr4vg683r9ngp5fj36gv2sa979-glibc-2.42-103/lib/ld-linux-aarch64.so.1
+powerd base 0xaaaaaaaa0000
+exit 0
+Nov 20 14:50:45 curiosity nvidia-powerd[807828]: nvidia-powerd version:2.0 (build 1)
+Nov 20 14:50:45 curiosity nvidia-powerd[807828]: DBus Connection is established
+Nov 20 14:50:45 curiosity nvidia-powerd[807828]: Quit successfully
