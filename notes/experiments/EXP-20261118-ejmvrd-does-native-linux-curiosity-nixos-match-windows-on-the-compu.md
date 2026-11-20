@@ -60,6 +60,7 @@ revision 0x0300 and the open driver 615.78 sends 0x100/0x200, so `nvidia-powerd`
 ([[RUN-20261118-hb8wfr]]). Whether Windows' extra 10 W comes through NPCF or from the MSI mode
 through the EC is not separated yet (Windows NPCF-off runs measured llama.cpp only).
 - [[RUN-20261120-g7hznd]] Dynamic Boost with 620.70.06: a driver bug (NVPCF 3.x reads quartered) fixed, then every NVPCF exchange succeeds, yet nvidia-powerd quits without a logged reason; GPU cap unchanged
+- [[RUN-20261120-stydn9]] MSI Center's top mode set on Windows, then cuBLASLt on Linux: still ~52 W under the SW power cap; the mode does not carry over a reboot, or is not what sets the cap
 
 ## Conclusion
 Written once, by a human, when status becomes `concluded`.

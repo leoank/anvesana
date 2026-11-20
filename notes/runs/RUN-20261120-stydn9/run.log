@@ -1,0 +1,253 @@
+power profile: balanced -> performance; AC: 1 1 1 0 
+warning: Git tree '/home/ank/workspace/repos/leoank/anvesana/main' is dirty
+Machine bbaum-pc-7 on linux: benchmarks cpu, gpu, tensor, cublaslt, tensorrt_rtx, tensorrt, cutlass, llm, disk
+Extras: cutlass, nvidia, tensorrt
+$ uv sync --extra cutlass --extra nvidia --extra tensorrt --locked
+Resolved 33 packages in 1ms
+   Building tensorrt-cu13==11.4.0.106
+Downloading cuda-bindings (6.2MiB)
+Downloading nvidia-cuda-nvrtc (48.6MiB)
+Downloading networkx (2.0MiB)
+Downloading nvidia-cublas (527.2MiB)
+Downloading nvidia-cuda-cccl (3.7MiB)
+Downloading nvidia-cutlass (6.1MiB)
+Downloading cuda-core (5.9MiB)
+Downloading nvidia-cuda-nvcc (39.8MiB)
+Downloading nvidia-nvvm (65.3MiB)
+Downloading nvidia-cuda-runtime (2.4MiB)
+Downloading cmake (28.9MiB)
+Downloading scipy (32.4MiB)
+Downloading tensorrt-cu13-bindings (1.2MiB)
+Downloading tensorrt-rtx-cu13-bindings (1.1MiB)
+Downloading tensorrt-rtx-cu13-libs (86.4MiB)
+   Building tensorrt-cu13-libs==11.4.0.106
+   Building tensorrt-rtx==1.7.1.116
+   Building tensorrt-rtx-cu13==1.7.1.116
+Downloading nvidia-curand (60.8MiB)
+ Downloaded tensorrt-cu13-bindings
+ Downloaded tensorrt-rtx-cu13-bindings
+      Built tensorrt-rtx-cu13==1.7.1.116
+      Built tensorrt-rtx==1.7.1.116
+      Built tensorrt-cu13==11.4.0.106
+ Downloaded networkx
+ Downloaded nvidia-cuda-runtime
+ Downloaded nvidia-cuda-cccl
+ Downloaded cuda-core
+ Downloaded nvidia-cutlass
+ Downloaded cuda-bindings
+      Built tensorrt-cu13-libs==11.4.0.106
+ Downloaded cmake
+ Downloaded scipy
+ Downloaded nvidia-cuda-nvcc
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvvm
+ Downloaded tensorrt-rtx-cu13-libs
+ Downloaded nvidia-cublas
+Prepared 29 packages in 6m 09s
+Installed 29 packages in 40ms
+ + cmake==4.4.4
+ + cuda-bindings==13.4.4
+ + cuda-core==1.2.2
+ + cuda-pathfinder==1.8.4
+ + cuda-python==13.4.4
+ + networkx==3.7
+ + ninja==1.13.2
+ + nvidia-cublas==13.8.2.12
+ + nvidia-cuda-cccl==13.3.4.3.1
+ + nvidia-cuda-crt==13.4.92
+ + nvidia-cuda-nvcc==13.4.92
+ + nvidia-cuda-nvrtc==13.4.92
+ + nvidia-cuda-runtime==13.4.92
+ + nvidia-curand==10.4.4.72
+ + nvidia-cutlass==4.2.0.0
+ + nvidia-ml-py==13.615.71
+ + nvidia-nvvm==13.4.92
+ + pydot==4.0.1
+ + pyparsing==3.3.3
+ + scipy==1.18.1
+ + six==1.17.0
+ + tensorrt-cu13==11.4.0.106
+ + tensorrt-cu13-bindings==11.4.0.106
+ + tensorrt-cu13-libs==11.4.0.106
+ + tensorrt-rtx==1.7.1.116
+ + tensorrt-rtx-cu13==1.7.1.116
+ + tensorrt-rtx-cu13-bindings==1.7.1.116
+ + tensorrt-rtx-cu13-libs==1.7.1.116
+ + treelib==1.8.0
+
+Readiness: bbaum-pc-7 on linux
+--------------------------------------
+benchmark       module  status  detail
+cpu                cpu      OK        
+gpu                gpu      OK        
+tensor          tensor      OK        
+cublaslt      cublaslt      OK        
+tensorrt_rtx  tensorrt      OK        
+tensorrt      tensorrt      OK        
+cutlass        cutlass      OK        
+llm                llm      OK        
+disk              disk      OK        
+
+READY
+
+warning: Git tree '/home/ank/workspace/repos/leoank/anvesana/main' is dirty
+================================================================
+ Benchmark run bbaum-pc-7_2026-11-20_233744_linux_nixos-curiosity-msi-top
+ Machine : bbaum-pc-7 - MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.
+ Store   : notes/runs/RUN-20261120-stydn9/results/bbaum-pc-7/bbaum-pc-7_2026-11-20_233744_linux_nixos-curiosity-msi-top
+ Plan    : cublaslt
+ Settings: 30s per sustained test, 15s cooldown
+================================================================
+ !! running on battery
+
+[idle] 10s baseline...
+
+[1/1] cublaslt
+================================================================
+ cuBLASLt GEMM throughput
+ cuBLASLt 130802 | M=N=K=8192 | 10s per precision
+================================================================
+
+[1/6] fp32: autotuning...
+  -> fp32                            :      12.95 TFLOPS  [56.5 W avg, 1998 MHz SM, 75 C peak]
+
+[2/6] tf32: autotuning...
+  -> tf32                            :      41.51 TFLOPS  [50.2 W avg, 1969 MHz SM, 78 C peak]
+
+[3/6] fp16: autotuning...
+  -> fp16                            :      69.95 TFLOPS  [50.0 W avg, 1815 MHz SM, 79 C peak]
+
+[4/6] bf16: autotuning...
+  -> bf16                            :      74.04 TFLOPS  [50.1 W avg, 1874 MHz SM, 80 C peak]
+
+[5/6] fp8: autotuning...
+  -> fp8                             :     148.97 TFLOPS  [52.3 W avg, 1861 MHz SM, 82 C peak]
+
+[6/6] nvfp4: autotuning...
+  -> nvfp4                           :     277.78 TFLOPS  [54.5 W avg, 1860 MHz SM, 81 C peak]
+
+================ cuBLASLt Summary ==============================
+ cublaslt.fp32                                       12.95 TFLOPS
+ cublaslt.tf32                                       41.51 TFLOPS
+ cublaslt.fp16                                       69.95 TFLOPS
+ cublaslt.bf16                                       74.04 TFLOPS
+ cublaslt.fp8                                       148.97 TFLOPS
+ cublaslt.nvfp4                                     277.78 TFLOPS
+================================================================
+
+[cooldown] 10s thermal descent...
+
+================================================================
+ Results
+================================================================
+ cublaslt.fp32                                   12.95 TFLOPS
+ cublaslt.tf32                                   41.51 TFLOPS
+ cublaslt.fp16                                   69.95 TFLOPS
+ cublaslt.bf16                                   74.04 TFLOPS
+ cublaslt.fp8                                   148.97 TFLOPS
+ cublaslt.nvfp4                                 277.78 TFLOPS
+
+ Status: complete
+ Saved : notes/runs/RUN-20261120-stydn9/results/bbaum-pc-7/bbaum-pc-7_2026-11-20_233744_linux_nixos-curiosity-msi-top/run.json
+warning: Git tree '/home/ank/workspace/repos/leoank/anvesana/main' is dirty
+========================================================================
+ bbaum-pc-7 windows 2026-10-29  vs  bbaum-pc-7 linux 2026-11-20 nixos-curiosity-msi-top
+========================================================================
+
+System
+------------------------------------------------------------------------------------------------------------------------------------
+                                           bbaum-pc-7 windows 2026-10-29         bbaum-pc-7 linux 2026-11-20 nixos-curiosity-msi-top
+run                                 bbaum-pc-7_2026-10-29_152707_windows  bbaum-pc-7_2026-11-20_233744_linux_nixos-curiosity-msi-top
+started                                        2026-10-29T15:27:07+00:00                                   2026-11-20T23:37:44+00:00
+hostname                                                      bbaum-pc-7                                                   curiosity
+platform                                       Windows-11-10.0.28000-SP0                         Linux-7.0.14-aarch64-with-glibc2.42
+bios                                                                   -                            Insyde G2621NMS.10B (09/30/2026)
+nvidia_driver                                                     621.01                                                   620.70.06
+power_profile                       mode=Best performance, plan=Balanced                                        governor=performance
+on_ac_power                                                         True                                                       False
+ram_gb                                                             32.75                                                       128.9
+gpu_mem_total_gb                                                  103.08                                                           -
+gpu_power_limit_w                                                   None                                                        None
+gpu_max_sm_clock_mhz                                                3003                                                        3003
+python                                                           3.12.16                                                     3.12.15
+gpu                   NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)          NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)
+
+Benchmarks
+---------------------------------------------------------------------------------------------------------------------------------------
+metric                           unit  bbaum-pc-7 windows 2026-10-29  bbaum-pc-7 linux 2026-11-20 nixos-curiosity-msi-top        change
+cpu.math_mops                  MOps/s                       1,919.56                                                    -              
+cpu.math_mops_1core            MOps/s                         148.56                                                    -              
+cpu.fp64_gemm                  GFLOPS                         426.54                                                    -              
+cpu.mem_copy_bandwidth           GB/s                         150.76                                                    -              
+cpu.mem_copy_bandwidth_1core     GB/s                          45.66                                                    -              
+gpu.mem_copy_bandwidth           GB/s                         251.57                                                    -              
+gpu.fp32_fma                   TFLOPS                          29.49                                                    -              
+gpu.fp16_mma_legacy            TFLOPS                         124.31                                                    -              
+tensor.fp16                    TFLOPS                         125.44                                                    -              
+tensor.fp16_f16acc             TFLOPS                         125.49                                                    -              
+tensor.bf16                    TFLOPS                         125.46                                                    -              
+tensor.fp8                     TFLOPS                         247.23                                                    -              
+tensor.nvfp4                   TFLOPS                         484.32                                                    -              
+tensor.mxfp4                   TFLOPS                         496.07                                                    -              
+tensor.fp16_sparse             TFLOPS                         245.93                                                    -              
+tensor.fp8_sparse              TFLOPS                         490.31                                                    -              
+tensor.nvfp4_sparse            TFLOPS                         973.29                                                    -              
+cublaslt.fp32                  TFLOPS                          14.63                                                12.95  -11.5% worse
+cublaslt.tf32                  TFLOPS                          47.29                                                41.51  -12.2% worse
+cublaslt.fp16                  TFLOPS                          85.63                                                69.95  -18.3% worse
+cublaslt.bf16                  TFLOPS                          86.34                                                74.04  -14.2% worse
+cublaslt.fp8                   TFLOPS                         170.20                                               148.97  -12.5% worse
+cublaslt.nvfp4                 TFLOPS                         330.70                                               277.78  -16.0% worse
+tensorrt_rtx.fp16              TFLOPS                          28.34                                                    -              
+tensorrt_rtx.bf16              TFLOPS                          28.21                                                    -              
+tensorrt_rtx.fp8               TFLOPS                          63.63                                                    -              
+tensorrt_rtx.nvfp4             TFLOPS                          25.99                                                    -              
+tensorrt_rtx.fp16_sparse       TFLOPS                          27.97                                                    -              
+tensorrt_rtx.fp8_sparse        TFLOPS                          63.07                                                    -              
+disk.seq_write                   MB/s                       2,777.03                                                    -              
+disk.seq_read                    MB/s                       4,058.18                                                    -              
+disk.rand4k_write_qd1            IOPS                      35,947.17                                                    -              
+disk.rand4k_write_qd1_latency      ms                           0.03                                                    -              
+disk.rand4k_read_qd1             IOPS                      12,029.98                                                    -              
+disk.rand4k_read_qd1_latency       ms                           0.08                                                    -              
+disk.rand4k_read_qd8             IOPS                     125,899.27                                                    -              
+
+Telemetry per phase
+-----------------------------------------------------------------------------------------------------------------------------------
+phase                   measure  bbaum-pc-7 windows 2026-10-29  bbaum-pc-7 linux 2026-11-20 nixos-curiosity-msi-top          change
+idle            avg_gpu_power_w                            1.5                                                  3.2   +111.3% worse
+idle           peak_gpu_power_w                            2.9                                                  3.2    +12.2% worse
+idle       avg_gpu_sm_clock_mhz                        1,536.5                                              2,346.0   +52.7% better
+idle          avg_gpu_clock_mhz                        1,536.5                                              2,346.0   +52.7% better
+idle            peak_gpu_temp_c                           43.0                                                 44.0     +2.3% worse
+idle            peak_soc_temp_c                           63.7                                                 45.9   -27.9% better
+idle             peak_thermal_c                           63.7                                                 45.9   -27.9% better
+idle           avg_cpu_util_pct                            6.0                                                  1.6    -74.0% worse
+idle           avg_cpu_freq_mhz                        2,199.0                                              3,406.0   +54.9% better
+idle           peak_ram_used_gb                            8.7                                                 20.3   +133.0% worse
+idle              gpu_energy_wh                         0.0038                                               0.0080   +110.5% worse
+cublaslt        avg_gpu_power_w                           61.3                                                 52.1   -15.1% better
+cublaslt       peak_gpu_power_w                           71.1                                                 64.7    -9.0% better
+cublaslt   avg_gpu_sm_clock_mhz                        2,005.5                                              1,942.2     -3.2% worse
+cublaslt      avg_gpu_clock_mhz                        2,005.5                                              1,942.2     -3.2% worse
+cublaslt        peak_gpu_temp_c                           76.0                                                 82.0     +7.9% worse
+cublaslt        peak_soc_temp_c                           85.8                                                 80.7    -5.9% better
+cublaslt         peak_thermal_c                           85.8                                                 80.7    -5.9% better
+cublaslt       avg_cpu_util_pct                            6.0                                                  6.5    +8.3% better
+cublaslt       avg_cpu_freq_mhz                        1,660.8                                              3,406.0  +105.1% better
+cublaslt       peak_ram_used_gb                            9.6                                                 22.1   +129.5% worse
+cublaslt          gpu_energy_wh                         2.7357                                               2.6837    -1.9% better
+whole run       avg_gpu_power_w                           38.6                                                 47.6    +23.4% worse
+whole run      peak_gpu_power_w                           76.3                                                 64.7   -15.2% better
+whole run  avg_gpu_sm_clock_mhz                        1,874.5                                              1,981.8    +5.7% better
+whole run     avg_gpu_clock_mhz                        1,874.5                                              1,981.8    +5.7% better
+whole run       peak_gpu_temp_c                           78.0                                                 82.0     +5.1% worse
+whole run       peak_soc_temp_c                           98.4                                                 80.7   -18.0% better
+whole run        peak_thermal_c                           98.4                                                 80.7   -18.0% better
+whole run      avg_cpu_util_pct                           17.4                                                  6.0    -65.6% worse
+whole run      avg_cpu_freq_mhz                        2,004.2                                              3,406.0   +69.9% better
+whole run      peak_ram_used_gb                           11.8                                                 22.1    +87.4% worse
+whole run         gpu_energy_wh                         8.4697                                               2.7252   -67.8% better
+
+Markdown written to notes/runs/RUN-20261120-stydn9/compare.md
