@@ -37,3 +37,11 @@ sudo env "$path" "$gdb" -q -batch -ex "set pagination off" -ex "set follow-fork-
   -ex "handle SIGUSR1 SIGCHLD SIGPIPE nostop noprint pass" -x "$(dirname "$0")/loglevel.py" \
   --args "$powerd" 2>&1 | grep -vE '^\[|libthread_db' > "$here/powerd-log.out"
 journalctl -b --no-pager -t nvidia-powerd --since -1min >> "$here/powerd-log.out"
+
+# 5. Where it quits (backtraces) and why (its INFO lines need a verbosity above 3; main() sets 2).
+for s in quitbt verbose; do
+  sudo env "$path" "$gdb" -q -batch -ex "set pagination off" -ex "set follow-fork-mode parent" \
+    -ex "handle SIGUSR1 SIGUSR2 SIGCHLD SIGPIPE nostop noprint pass" -x "$(dirname "$0")/$s.py" \
+    --args "$powerd" 2>&1 | grep -vE '^\[|libthread' > "$here/powerd-$s.out"
+done
+journalctl -b --no-pager -t nvidia-powerd --since -1min >> "$here/powerd-verbose.out"

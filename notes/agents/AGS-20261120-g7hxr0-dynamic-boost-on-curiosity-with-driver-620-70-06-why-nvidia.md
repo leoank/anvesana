@@ -6,7 +6,7 @@ title: "Dynamic Boost on curiosity with driver 620.70.06: why nvidia-powerd stil
 model: claude-opus-5-5
 harness: claude-code
 started: 2026-11-20T14:46+00:00
-finished: 2026-11-20T14:52+00:00
+finished: 2026-11-20T15:07+00:00
 created_entities: [RUN-20261120-g7hznd, REV-20261120-g7hvet]
 edited_entities: [EXP-20261118-ejmvrd]
 outcome: done             # done | failed | aborted | pending
@@ -38,3 +38,9 @@ image. Goal: get nvidia-powerd (Dynamic Boost) running so the GPU can reach Wind
   [[EXP-20261118-ejmvrd]], reviewed in [[REV-20261120-g7hvet]].
 - Decided without asking: kept the NVPCF dumps out of git (vendor data, like the ACPI tables
   of [[RUN-20261118-hb8wfr]]).
+- After the first write-up, Ank asked for more. A backtrace showed `main()` quits when no worker
+  runs; powerd's INFO lines need a verbosity above 3 that `main()` sets to 2. Forced from gdb,
+  powerd reports NVPCF 3.x fully accepted and then no worker created, without a reason.
+  Recommended moving to MSI's own interface instead; its WMI methods turned out to be an opaque
+  pass-through to MSI's FF-A service, so proposed a write-free test (MSI Center's mode, then a
+  reboot into Linux) rather than guessing payloads.

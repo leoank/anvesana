@@ -1,0 +1,27 @@
+
+Program stopped.
+0x0000fffff7fdbc80 in _start () from /nix/store/fgkgp2zr4vg683r9ngp5fj36gv2sa979-glibc-2.42-103/lib/ld-linux-aarch64.so.1
+powerd base 0xaaaaaaaa0000
+
+Temporary breakpoint 1, 0x0000aaaaaaafc394 in ?? ()
+verbosity was 0
+verbosity written: 2 at 0x54c60
+exit 0
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: nvidia-powerd version:2.0 (build 1)
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: Found a notebook SKU
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: nvtopps initialize...
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: Trying NVPCF DSM 3x initialization
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: DBus Connection is established
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: DSM 3x config initialization complete (6 objects), calling load
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: ObjPrimitiveLinux loaded successfully
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: NVPCF DSM 3x is supported on this system
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: workerManager start 1
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: systemState start 1
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: No Worker Running!
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: systemState stop 1
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: workerManager stop 1
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: nvtopps uninitialize...
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: workerManager uninitialize 1
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: Tearing down DSM 3x config (6 objects)
+Nov 20 14:59:12 curiosity nvidia-powerd[825740]: INFO: DSM 3x config deinitialized
+Nov 20 14:59:13 curiosity nvidia-powerd[825740]: Quit successfully
