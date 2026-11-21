@@ -6,7 +6,7 @@ title: Suspend on 620.70.06, the return to 615, and upstream N1X issues
 model: claude-opus-5-5
 harness: claude-code
 started: 2026-11-21T12:43+00:00
-finished: 2026-11-21T13:34+00:00
+finished: 2026-11-21T14:34+00:00
 created_entities: [RUN-20261121-e9w72k]
 edited_entities: [EXP-20261118-ejmvrd]
 outcome: done             # done | failed | aborted | pending
@@ -38,3 +38,10 @@ safe because HP and ASUS owners read the same SoC page, and printed one sample f
 cuBLASLt PL1 stayed at 80 W; the GPU's share depends on the CPU's energy preference
 ([[RUN-20261121-e9w72k]]). I put the power profile back to balanced after the power-saver run.
 The first bench attempt failed on a cut-off TensorRT download; the retry worked.
+
+Then (Ank: "do both"): wrote n1x-gpu-boost, a daemon that sets EPP 255 while NVML reports the
+GPU busy and the active TuneD profile's value when idle, skipping performance and power-saver;
+I chose 60 %/3 s and 30 %/10 s thresholds and reading the profile from
+`/etc/tuned/active_profile` (a profile switch to power-saver while boosted would otherwise look
+like the boost). Tested by hand: same GPU share as power-saver. Drafted a #1521 follow-up in
+`~/issue-1521-followup.md`, not posted yet.
