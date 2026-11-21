@@ -5,9 +5,8 @@
 # Taken from the ASUS ProArt P16 Arch build (github.com/pfeifferj/archlinuxarm-proart-p16
 # @ 3484cc0, MIT) minus its ASUS-only parts (hid-asus, ASUS audio/amp firmware):
 #   kernel      Ubuntu linux-nvidia-7.0 7.0.0-1022 (Linux 7.0.14) + ACPI-override allocation fix
-#   NVIDIA      620.70.06 open modules, nvidia-drm modeset + fbdev, with the aarch64 DRM
-#               mapping fix, the PR #1368 leak fix and an NVPCF 3.x buffer-size fix;
-#               Dynamic Boost (nvidia-powerd); `n1x.nvidiaDisplay = false`
+#   NVIDIA      615.78.08 open modules, nvidia-drm modeset + fbdev, with the aarch64 DRM
+#               mapping fix and the PR #1368 leak fix; `n1x.nvidiaDisplay = false`
 #               falls back to simpledrm
 #               (without the ProArt tuple's vblank=1: on bbaum-pc-7 it stalls every page flip)
 #   audio       NVIDIA's MT8901 SoundWire UCM profiles (alsa-ucm-conf PR 862, not yet released);
@@ -218,33 +217,27 @@ in
       modesetting.enable = cfg.nvidiaDisplay;       # nvidia_drm modeset=1 fbdev=1
       nvidiaSettings = false;
       powerManagement.enable = false;
-      # Dynamic Boost: nvidia-powerd shifts power between CPU and GPU through NPCF (NVDA0820), as
-      # NVIDIA's Windows driver does; needs NVPCF 3.x, so driver 620 or later here.
-      dynamicBoost.enable = true;
       package = withCleanOpen (config.boot.kernelPackages.nvidiaPackages.mkDriver {
-        # 620.70.06 is the first Linux driver that speaks NVPCF 3.x (_DSM revision 0x300), the
-        # only revision this firmware's NPCF answers; 615.78.08 sent 0x100/0x200 and Dynamic Boost
-        # had no channel, capping sustained GPU power near 51 W (RUN-20261118-hb8wfr).
-        version = "620.70.06";
-        sha256_aarch64 = "3fa65a9271e0dde2a4e58c4965c38885a02a3a42accdcb26fc817410607f3e03";
+        # 615.78.08, not 620.70.06: 620 marks power management unsupported on GB20B (the N1X's
+        # GPU), so every suspend aborts at the driver's PM notifier, and with that check patched
+        # out the machine never resumed (2026-11-21). 620's one gain, NVPCF 3.x for Dynamic Boost,
+        # did not work here either: nvidia-powerd still starts no worker (RUN-20261120-g7hznd).
+        # Its NVPCF buffer-size fix stays in patches/ for a later 620.
+        version = "615.78.08";
+        sha256_aarch64 = "5076011350181e81a031f0fd012fe35fe4be37c7820d651fb7aaa894af447a37";
         # mkDriver requires the x86_64 hash too; it is only fetched on x86_64.
         sha256_64bit = lib.fakeHash;
-        # NAR hash of NVIDIA/open-gpu-kernel-modules at tag 620.70.06 (nix flake prefetch).
-        openSha256 = "sha256-dV8vzniUl3UJoG2Q3KdoUJigLRuQeTniUfB670gb1Mw=";
+        # NAR hash of NVIDIA/open-gpu-kernel-modules at tag 615.78.08 (printed by
+        # the first build in WSL, 2026-11-06).
+        openSha256 = "sha256-HBINiOjL0ZJLIAJeNIBYHBnwgUXtNwPPtnFpAI1YwF4=";
         patchesOpen = [
           ./patches/nvidia-open-drm-aarch64-mappings.patch
           ./patches/nvidia-open-pr1368-semsurf-leak.patch
-          # 620.70.06 shrinks NVPCF 3.x read buffers to a quarter; NPCF's 2,176-byte static
-          # table then never fits and nvidia-powerd quits (2026-11-20).
-          ./patches/nvidia-open-nvpcf3x-read-size.patch
         ];
         useSettings = false;
         usePersistenced = false;
       });
     };
-    # nvidia-powerd also runs dmidecode to identify the machine (it logged "dmidecode: command
-    # not found" without it, 2026-11-18).
-    systemd.services.nvidia-powerd.path = [ pkgs.dmidecode ];
     # The ProArt's qualified tuple also sets vblank=1 (h7607a-nvidia.conf); off by default here.
     boot.extraModprobeConfig = lib.mkIf (cfg.nvidiaDisplay && cfg.nvidiaVblank) "options nvidia_drm vblank=1";
 
