@@ -161,6 +161,16 @@ in
         conservatively by ear. Low priority, so the plain speaker output stays the default.
       '';
     };
+    hdr = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Start each GNOME session with the built-in panel in HDR (mutter's BT.2100 colour mode;
+        the panel is HDR10/PQ, ~1600 cd/m2). Applied once at login by n1x-display-power
+        (n1x-desktop); a change in Settings > Displays then holds for the session. Needed
+        because the live system's home starts empty, so GNOME's own saved choice is lost at boot.
+      '';
+    };
     lps0 = lib.mkOption {
       type = lib.types.bool;
       default = false;

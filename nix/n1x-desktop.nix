@@ -31,8 +31,10 @@ let
   displayPower = pkgs.writeShellScript "n1x-display-power" ''
     conf=''${XDG_CONFIG_HOME:-$HOME/.config}/n1x-display-power
     last_set= last_time=0
+    # n1x.hdr: the colour mode for the session's first apply; later ones keep the current mode.
+    first_cm=${if config.n1x.hdr then "bt2100" else ""}
     apply() {
-      local show conns conn scale res hz modes mode cur vrr=on
+      local show conns conn scale res hz modes mode cur cm curcm vrr=on
       show=$(gdctl show --modes 2>&1) || { echo "gdctl show failed: $show"; return 1; }
       conns=$(printf '%s\n' "$show" | grep -oE '\b(eDP|DP|HDMI|DVI|VGA)-[0-9]+' | sort -u)
       if [ "$(printf '%s\n' "$conns" | grep -c .)" != 1 ]; then
@@ -40,6 +42,9 @@ let
       fi
       cur=$(gdctl show 2>/dev/null | awk '/Current mode/ {getline; if (match($0, /[0-9]+x[0-9]+@[0-9.]+(\+vrr)?/)) print substr($0, RSTART, RLENGTH); exit}')
       conn=$conns
+      # Keep the colour mode (HDR is "bt2100"): a `gdctl set` without it goes back to default.
+      curcm=$(gdctl show --verbose 2>/dev/null | grep -m1 -oE '(^|[^-])color-mode ⇒ +[a-z0-9-]+' | awk '{print $NF}')
+      cm=''${first_cm:-$curcm}
       scale=$(printf '%s\n' "$show" | grep -m1 -oE 'Scale: [0-9.]+' | grep -oE '[0-9.]+$')
       modes=$(printf '%s\n' "$show" | grep -oE '[0-9]+x[0-9]+@[0-9.]+(\+vrr)?' | sort -u)
       res=$(printf '%s\n' "$modes" | awk -F'[x@]' '{print $1*$2, $1 "x" $2}' | sort -n | tail -1 | cut -d' ' -f2)
@@ -53,7 +58,7 @@ let
       [ "$vrr" = on ] && mode=$(pick "")
       [ -n "$mode" ] || mode=$(pick -v)
       [ -n "$mode" ] || { echo "no $res mode near $hz Hz in: $(echo $modes)"; return 0; }
-      [ "$mode" = "$cur" ] && return 0
+      [ "$mode" = "$cur" ] && [ "$cm" = "$curcm" ] && { first_cm=; return 0; }
       # The same mode again within 30 s means it did not stick (or reads back under another
       # name): stop rather than loop on our own MonitorsChanged.
       if [ "$mode" = "$last_set" ] && [ $(( $(date +%s) - last_time )) -lt 30 ]; then
@@ -63,9 +68,9 @@ let
       # Not --persistent: GNOME Shell asks "Keep these display settings?" for every persistent
       # change, so it asked at each login and charger change (Ank, 2026-11-11). Without it mutter
       # brings back its own default on resume and this script switches again ~3 s later.
-      if gdctl set --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode"; then
-        last_set=$mode; last_time=$(date +%s)
-        echo "$conn: ''${cur:-?} -> $mode (scale ''${scale:-preferred}; $([ "$hz" = 60 ] && echo battery || echo AC); vrr $vrr)"
+      if gdctl set --logical-monitor --primary ''${scale:+--scale "$scale"} --monitor "$conn" --mode "$mode" ''${cm:+--color-mode "$cm"}; then
+        last_set=$mode; last_time=$(date +%s); first_cm=
+        echo "$conn: ''${cur:-?} -> $mode (scale ''${scale:-preferred}; $([ "$hz" = 60 ] && echo battery || echo AC); vrr $vrr; colour ''${cm:-?})"
       else
         # Not counted as set: with the lid closed mutter refuses ("Refusing to activate a closed
         # laptop panel"), and counting it blocked the retry after the lid opened.
@@ -208,6 +213,7 @@ in
   };
   environment.sessionVariables.MOZ_DISABLE_RDD_SANDBOX = "1";
   n1x.speakerDsp = lib.mkDefault true;           # "Speakers (DSP)" output, opt-in in the sound menu
+  n1x.hdr = lib.mkDefault true;                  # HDR on the built-in panel at login (Settings can turn it off)
   hardware.bluetooth.enable = lib.mkDefault true;
   hardware.sensor.iio.enable = lib.mkDefault true;
   services.fprintd.enable = lib.mkDefault false;
