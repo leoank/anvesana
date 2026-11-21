@@ -82,6 +82,9 @@ let
       case $line in *OnBattery*|*MonitorsChanged*) sleep 1; apply ;; esac
     done
   '';
+  # The CPUs' energy/performance preference per TuneD profile (0 performance ... 255 energy);
+  # n1x-gpu-boost reads the same table.
+  eppByProfile = { n1x-performance = 0; n1x-balanced = 127; n1x-balanced-battery = 192; n1x-power-saver = 255; };
 in
 {
   # Modern Standby: n1x-lps0 makes the firmware's LPS0 calls around suspend (2026-11-10, boots
@@ -128,9 +131,24 @@ in
     profiles = lib.mapAttrs (name: epp: {
       main.summary = "N1X: energy/performance preference ${toString epp} (0 performance, 255 energy)";
       cpu_epp = { type = "sysfs"; "/sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference_val" = epp; };
-    }) { n1x-performance = 0; n1x-balanced = 127; n1x-balanced-battery = 192; n1x-power-saver = 255; };
+    }) eppByProfile;
   };
   systemd.services.tuned.after = [ "n1x-cppc-init.service" ];
+  # GPU boost: the GPU and CPUs share one SoC power limit (PL1 80 W), and under a GPU load the
+  # GPU gets what the CPUs leave: ~50 W at EPP 127, ~58 W at 255 (RUN-20261121-e9w72k). NVIDIA's
+  # Dynamic Boost does this shift on Windows; on Linux nvidia-powerd starts no worker here. So
+  # n1x-gpu-boost sets EPP 255 while the GPU is busy and the profile's value again when it is
+  # idle; nothing under performance (EPP 0) or power-saver (255).
+  systemd.services.n1x-gpu-boost = {
+    description = "Shift the SoC power budget from CPU to GPU while the GPU is busy (n1x-gpu-boost)";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "tuned.service" "systemd-modules-load.service" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.python3}/bin/python3 ${pkgs.writeText "n1x-gpu-boost.py" (builtins.readFile ./n1x-gpu-boost.py)} ${lib.escapeShellArg (builtins.toJSON eppByProfile)}";
+      Restart = "on-failure";
+      RestartSec = 10;
+    };
+  };
   systemd.user.services.n1x-display-power = {
     description = "Refresh rate by power source (120 Hz AC, 60 Hz battery, VRR when offered)";
     wantedBy = [ "graphical-session.target" ];
