@@ -1,0 +1,58 @@
+warning: Git tree '/home/ank/workspace/repos/leoank/anvesana/main' is dirty
+================================================================
+ Benchmark run bbaum-pc-7_2026-11-21_132540_linux_nixos-curiosity-pl1-powersaver
+ Machine : bbaum-pc-7 - MSI laptop, NVIDIA RTX Spark N1X: 20-core ARM64 CPU, Blackwell GPU (sm_121, 48 SMs, 6,144 cores), 128 GB unified LPDDR5X with a configurable CPU/GPU split, NPU. Windows 11 on ARM now, moving to Linux.
+ Store   : notes/runs/RUN-20261121-e9w72k/power-saver/results/bbaum-pc-7/bbaum-pc-7_2026-11-21_132540_linux_nixos-curiosity-pl1-powersaver
+ Plan    : cublaslt
+ Settings: 120s per sustained test, 15s cooldown
+================================================================
+
+[idle] 10s baseline...
+
+[1/1] cublaslt
+================================================================
+ cuBLASLt GEMM throughput
+ cuBLASLt 130802 | M=N=K=8192 | 40s per precision
+================================================================
+
+[1/6] fp32: autotuning...
+  -> fp32                            :      13.88 TFLOPS  [63.8 W avg, 2052 MHz SM, 79 C peak]
+
+[2/6] tf32: autotuning...
+  -> tf32                            :      45.13 TFLOPS  [57.4 W avg, 2047 MHz SM, 81 C peak]
+
+[3/6] fp16: autotuning...
+  -> fp16                            :      79.03 TFLOPS  [57.8 W avg, 1947 MHz SM, 83 C peak]
+
+[4/6] bf16: autotuning...
+  -> bf16                            :      78.32 TFLOPS  [56.9 W avg, 1962 MHz SM, 83 C peak]
+
+[5/6] fp8: autotuning...
+  -> fp8                             :     157.34 TFLOPS  [56.1 W avg, 1914 MHz SM, 84 C peak]
+
+[6/6] nvfp4: autotuning...
+  -> nvfp4                           :     294.22 TFLOPS  [53.3 W avg, 1850 MHz SM, 82 C peak]
+
+================ cuBLASLt Summary ==============================
+ cublaslt.fp32                                       13.88 TFLOPS
+ cublaslt.tf32                                       45.13 TFLOPS
+ cublaslt.fp16                                       79.03 TFLOPS
+ cublaslt.bf16                                       78.32 TFLOPS
+ cublaslt.fp8                                       157.34 TFLOPS
+ cublaslt.nvfp4                                     294.22 TFLOPS
+================================================================
+
+[cooldown] 10s thermal descent...
+
+================================================================
+ Results
+================================================================
+ cublaslt.fp32                                   13.88 TFLOPS
+ cublaslt.tf32                                   45.13 TFLOPS
+ cublaslt.fp16                                   79.03 TFLOPS
+ cublaslt.bf16                                   78.32 TFLOPS
+ cublaslt.fp8                                   157.34 TFLOPS
+ cublaslt.nvfp4                                 294.22 TFLOPS
+
+ Status: complete
+ Saved : notes/runs/RUN-20261121-e9w72k/power-saver/results/bbaum-pc-7/bbaum-pc-7_2026-11-21_132540_linux_nixos-curiosity-pl1-powersaver/run.json
